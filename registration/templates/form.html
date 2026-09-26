@@ -1,1770 +1,797 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PowerExpress 2.0 | Registration Form</title>
-    <link rel="icon" href="{% static '/img/pes.png' %}" />
-    <!--daisy ui-->
-    <link
-      href="https://cdn.jsdelivr.net/npm/daisyui@5"
-      rel="stylesheet"
-      type="text/css"
-    />
-    <!--tailwind-->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- sweet alert  -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!--particles.js-->
-    <script src="{% static 'js/particles.min.js' %}"></script>
-    <!-- stats.js lib -->
-    <script src="http://threejs.org/examples/js/libs/stats.min.js"></script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PPIS | Registration Form</title>
+  <link rel="icon" href="{% static '/img/pes.png' %}" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="{% static 'js/particles.min.js' %}"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+    body { background: transparent; font-family: "Instrument Sans", sans-serif; }
+    canvas { display: block; vertical-align: bottom; }
+    #particles-js {
+      position: fixed; width: 100%; height: 100%;
+      background-color: #479A46; z-index: -1; top: 0; left: 0;
+    }
+    .card-panel {
+      background: #eefbe3;
+      backdrop-filter: blur(7px);
+      border-radius: 6px;
+      box-shadow: 0 2px 8px 0px #00000070;
+    }
+    .input_label { display: block; font-size: 16px; margin-bottom: .3rem; color: #122812; font-weight: 500; }
+    .input {
+      width: 100%; padding: .5rem .75rem;
+      border: 1px solid #aaa; border-radius: 0.375rem;
+      outline: none; background: white;
+      transition: border .2s, box-shadow .2s;
+    }
+    .input:focus { border-color: #74BA2D; box-shadow: 0 0 0 3px #d7f5bf88; }
+    select.input { cursor: pointer; }
+    textarea.input { resize: vertical; min-height: 120px; }
+    .section_heading { text-align: center; font-size: 1.4rem; font-weight: 600; margin-bottom: 20px; color: #122812; }
+    .continue-btn {
+      color: #fff; background: #479A46;
+      padding: .55rem 1.5rem; border-radius: 6px;
+      cursor: pointer; border: none; font-size: 1rem; font-weight: 500;
+      transition: background .2s;
+    }
+    .continue-btn:hover { background: #357a34; }
+    .continue-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .back-btn {
+      color: #479A46; background: transparent;
+      padding: .55rem 1rem; border-radius: 6px;
+      cursor: pointer; border: 1px solid #479A46; font-size: 1rem;
+      transition: all .2s;
+    }
+    .back-btn:hover { background: #d7f5bf; }
+    .admin-btn {
+      color: #122812; border: 1px solid #122812; border-radius: 5px;
+      background: #c4f49d; padding: .3rem .85rem;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 1rem; transition: all .2s; cursor: pointer;
+    }
+    .admin-btn:hover { background: #479A46; color: #c4f49d; }
+    .response_count {
+      font-size: 1rem; border-bottom: 2px solid #479A46;
+      border-top: 1px solid #479A46; border-left: 6px solid #479A46;
+      border-right: 1px solid #479A46; padding: 4px 12px;
+      border-radius: 14px 4px; background: #e3ffc6; color: #122812;
+    }
+    /* type selector cards */
+    .type-card {
+      border: 2px solid #b8e0b7; border-radius: 10px;
+      padding: 1.5rem; cursor: pointer; transition: all .25s;
+      background: white; text-align: center;
+    }
+    .type-card:hover { border-color: #479A46; box-shadow: 0 4px 12px #479a4630; }
+    .type-card.selected { border-color: #479A46; background: #eaffd8; box-shadow: 0 4px 16px #479a4640; }
+    .type-card .icon { font-size: 2.5rem; margin-bottom: .5rem; }
+    .type-card h3 { font-size: 1.15rem; font-weight: 700; color: #122812; margin-bottom: .25rem; }
+    .type-card p { font-size: .875rem; color: #555; }
+    /* step indicator */
+    .step-bar { display: flex; align-items: center; gap: 0; margin-bottom: 1.5rem; }
+    .step-dot {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700; flex-shrink: 0;
+      border: 2px solid #b8e0b7; background: #fff; color: #888;
+    }
+    .step-dot.active { border-color: #479A46; background: #479A46; color: #fff; }
+    .step-dot.done { border-color: #479A46; background: #d7f5bf; color: #357a34; }
+    .step-line { flex: 1; height: 2px; background: #b8e0b7; }
+    .step-line.done { background: #479A46; }
+    /* sdg checkboxes */
+    .sdg-label {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .4rem .75rem; border-radius: 6px; cursor: pointer;
+      border: 1px solid #ccc; background: white;
+      transition: all .2s; font-size: .9rem;
+    }
+    .sdg-label input { accent-color: #479A46; width: 16px; height: 16px; }
+    .sdg-label:has(input:checked) { border-color: #479A46; background: #eaffd8; color: #122812; }
+    /* word counter */
+    .word-counter { font-size: .8rem; color: #777; text-align: right; margin-top: 4px; }
+    .word-counter.warn { color: #c57a00; }
+    .word-counter.ok { color: #479A46; font-weight: 600; }
+    .word-counter.over { color: #c0392b; }
+    /* file upload */
+    .file-drop {
+      border: 2px dashed #74BA2D; border-radius: 8px;
+      padding: 2rem; text-align: center; background: white;
+      cursor: pointer; transition: all .2s;
+    }
+    .file-drop:hover { background: #f0fff0; }
+    .file-drop.has-file { border-color: #479A46; background: #eaffd8; }
+    /* member section */
+    .member-block {
+      border: 1px solid #c8e6c5; border-radius: 8px;
+      padding: 1rem; background: #f9fff7; margin-bottom: 1rem;
+    }
+    .member-block h4 { font-weight: 600; color: #357a34; margin-bottom: .75rem; font-size: .95rem; }
+    @media (max-width: 500px) {
+      .admin-btn { font-size: .875rem; }
+      .response_count { margin: 8px auto; }
+    }
+  </style>
+</head>
 
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+<body class="py-3 min-h-screen">
+  <div id="particles-js"></div>
 
-      body {
-        /* background-image: url("{% static '/img/StepBG.png' %}"); */
-        background: transparent;
-        background-repeat: no-repeat;
-        background-size: cover;
-        position: relative;
-        z-index: 0;
-        font-family: "Instrument Sans", sans-serif;
-      }
-      .response_count {
-        /* font-weight: bold; */
-        font-size: larger;
-        border-bottom: 2px solid #479A46;
-        border-top: 1px solid #479A46;
-        border-left: 6px solid #479A46;
-        border-right: 1px solid #479A46;
-        padding: 4px 8px;
-        border-radius: 14px 4px;
-        background: #e3ffc6;
-        color: #122812;
-        /* font-style: italic; */
-      }
-      /* Width of the scrollbar */
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 5px;
-        height: 12px; /* For horizontal scrollbar */
-      }
+  <!-- Banner -->
+  <div class="w-11/12 md:w-3/5 mx-auto my-4">
+    <div class="rounded overflow-hidden shadow-[0px_0px_10px_#c4f49d] border border-white">
+      <img src="{% static '/img/PPISBanner.webp' %}" alt="Power Policy & Innovation Summit" class="w-full object-cover" />
+    </div>
+  </div>
 
-      /* Track (background) */
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: #a32d2d;
-        border-radius: 8px;
-      }
-
-      /* Handle (the draggable part) */
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #e53232;
-        border-radius: 9999px;
-        cursor: pointer;
-      }
-
-      /* Handle on hover */
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #74BA2D;
-      }
-      /* particles container */
-      canvas {
-        display: block;
-        vertical-align: bottom;
-      } /* ---- particles.js container ---- */
-      #particles-js {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-color: #479A46;
-        background-image: url("");
-        background-repeat: no-repeat;
-        background-size: 20%;
-        background-position: 50% 50%;
-      } /* ---- stats.js ---- */
-      .count-particles {
-        background: #000022;
-        position: absolute;
-        top: 48px;
-        left: 0;
-        width: 80px;
-        color: #13e8e9;
-        font-size: 0.8em;
-        text-align: left;
-        text-indent: 4px;
-        line-height: 14px;
-        padding-bottom: 2px;
-        font-family: Helvetica, Arial, sans-serif;
-        font-weight: bold;
-      }
-      .js-count-particles {
-        font-size: 1.1em;
-      }
-      #stats,
-      .count-particles {
-        -webkit-user-select: none;
-        margin-top: 5px;
-        margin-left: 5px;
-      }
-      #stats {
-        border-radius: 3px 3px 0 0;
-        overflow: hidden;
-      }
-      .count-particles {
-        border-radius: 0 0 3px 3px;
-      }
-      .input_label{
-        display: block;
-        font-size: 18px;
-        margin-bottom: 0.35rem;
-        color: #122812;
-      }
-      .input{
-        width: 100%;
-        padding: .5rem .75rem;
-        border: 1px solid gray;
-        border-radius: 0.375rem;
-        outline-style: none;
-        box-shadow: 2px 2px 2px #eefbe3;
-        transition: all .3s ease-in-out;
-        background: transparent;
-      }
-      .input:focus{
-        border: 1px solid #74BA2D;
-        box-shadow: 2px 2px 2px #D7F5BF;
-      }
-      .continue-btn{
-        color: #74BA2D;
-        background: #D7F5BF;
-        padding: 0.5rem 1.25rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        border: 1px solid;
-      }
-      .continue-btn:hover{
-        background: #c4f49d;
-        transition: 0.3s all ease-in-out;
-      }
-      .admin-btn{
-        color: #122812;
-        border: 1px solid #122812;
-        border-radius: 0.325rem;
-        background: #c4f49d;
-        padding: 0.25rem 0.85rem;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 1.25rem;
-        transition: all 0.3s ease-in-out;
-        justify-content: center;
-      }
-      .admin-btn:hover{
-        background: #479A46;
-        color: #c4f49d;
-      }
-      .back-btn{
-        color: #122812;
-        border-radius: 1rem;
-        cursor: pointer;
-        font-size: 1.25rem;
-        margin-top: .75rem;
-      }
-      .section_heading{
-        text-align: center;
-        font-size: 1.5rem;
-        margin-bottom: .5rem;
-        margin-bottom: 22px;
-      }
-      @media screen and (max-width: 500px) {
-        .response_count {
-          margin: 0 auto;
-        }
-        .admin-btn{
-          width: 100%;
-          font-size: 1rem;
-        }
-        .response_count{
-          margin: 12px auto;
-        }
-      }
-    </style>
-  </head>
-
-  <body class="py-2 custom-scrollbar min-h-screen">
-    <!--Particles JS-->
-    <div id="particles-js" class="fixed inset-0 -z-10"></div>
-
-    <div class="w-11/12 md:w-3/5 mx-auto my-4">
-      <div class="rounded overflow-hidden shadow-[0px_0px_10px_#c4f49d] border-1 border-white flex justify-center">
-        {% if not is_staff_view and not is_published and not registration_closed %}
-        <img
-          src="{% static '/img/PowerExpressBanner.png' %}"
-          alt=""
-          class="object-cover md:h-auto"
-        />
-        {% else %}
-        <img
-          src="{% static '/img/PowerExpressBanner.png' %}"
-          alt=""
-          class="object-cover md:h-auto"
-        />
+  {% if has_perm.reg_form_control %}
+  <!-- Admin Controls -->
+  <div class="w-11/12 md:w-3/5 mx-auto mb-3">
+    <div class="card-panel px-6 py-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <button id="publishToggle" type="button" class="inline-flex gap-2 items-center">
+            <input id="publishCheckbox" type="checkbox"
+              {% if is_published %}checked{% endif %}
+              class="toggle border-gray-300 bg-gray-400 checked:border-[#74BA2D] checked:bg-[#479A46]" />
+            {% if is_published %}
+            <span id="publishText" class="text-lg font-medium" style="color:#009b1f">Form published!</span>
+            {% else %}
+            <span id="publishText" class="text-lg font-medium" style="color:#cf1912">Publish Form?</span>
+            {% endif %}
+          </button>
+        </div>
+        <p class="response_count">Responses: <strong>{{registration_count}}</strong></p>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <a href="{% url 'registration:download_excel' %}" class="admin-btn">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>
+          Download Excel
+        </a>
+        {% if has_perm.view_qr_dashboard %}
+        <a href="{% url 'core:dashboard' %}" class="admin-btn">Dashboard</a>
+        {% endif %}
+        {% if has_perm.view_reg_responses_list %}
+        <a href="{% url 'registration:response_table' %}" class="admin-btn">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M17,17H7V15H17V17M17,13H7V11H17V13M17,9H7V7H17V9Z"/></svg>
+          Responses
+        </a>
         {% endif %}
       </div>
     </div>
-    {% if has_perm.reg_form_control %}
-    <!-- admin feature part  -->
-    <!-- Button Header -->
-    <div class="rounded">
-      <div
-        class="bg-[#eefbe3] w-11/12 md:w-3/5 mx-auto px-6 py-5"
-        style="
-          backdrop-filter: blur(7px);
-          border-radius: 4px 4px;
-          box-shadow: 0 2px 6px 0px #00000078;
-          position: relative;
-          top: 14px;"
-      >
-        <!-- <div class="flex flex-wrap gap-3 items-center justify-between"> -->
-        <div
-          class="flex flex-col sm:flex-row sm:flex-wrap items-center md:justify-between items-start"
-        >
-          <div>
-            <!-- Publish Form Toggle Button (staff only) -->
-            <button
-              id="publishToggle"
-              type="button"
-              class="inline-flex gap-2 px-0 py-2.5 rounded-md font-medium text-lg"
-            >
-              <input
-                id="publishCheckbox"
-                type="checkbox"
-                {% if is_published %} checked="checked"
-                {% endif %}
-                class="toggle border-gray-300 bg-gray-400 checked:border-[#74BA2D] checked:bg-[#D7F5BF] checked:text-[#74BA2D]"
-              />
-              {% if is_published %}
-              <span
-                class="text-xl"
-                style="color: #74BA2D"
-                id="publishText"
-                >Form published!</span
-              >
-              {% else %}
-              <span
-                class="text-xl"
-                style="color: rgb(207, 25, 18)"
-                id="publishText"
-                >Publish Form?</span
-              >
-              {% endif %}
-            </button>
-          </div>
-          <p class="response_count">
-            Response Count:
-            <span style="font-weight: bold">{{registration_count}}</span>
-          </p>
-        </div>
-        <div
-          class="flex flex-col sm:flex-row gap-3 items-center justify-center sm:justify-center w-full sm:w-auto my-3"
-        >
-          <!-- Download Excel Button (staff only) -->
-          <a
-            href="{% url 'registration:download_excel' %}"
-            class="admin-btn"
-          >
-            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-              <path
-                d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
-              />
-            </svg>
-            <span>Download Excel Sheet</span>
-          </a>
+  </div>
+  {% endif %}
 
-          {% if has_perm.view_qr_dashboard %}
-          <a
-            href="{% url 'core:dashboard' %}"
-            class="admin-btn"
-          >
-            <span>Dashboard</span>
-          </a>
-          {% endif %} 
-          {% if has_perm.view_reg_responses_list %}
-          <!-- See Responses Button (staff only) -->
-          <a
-            href="{% url 'registration:response_table' %}"
-            class="admin-btn"
-          >
-            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-              <path
-                d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M17,17H7V15H17V17M17,13H7V11H17V13M17,9H7V7H17V9Z"
-              />
-            </svg>
-            <span>See Responses</span>
-          </a>
-          {% endif %}
-        </div>
-        {% endif %}
-      </div>
+  <!-- Main content -->
+  <div class="w-11/12 md:w-3/5 mx-auto mb-10">
 
-      <div
-        class="bg-[#eefbe3] w-11/12 md:w-3/5 mx-auto"
-        style="
-          backdrop-filter: blur(7px);
-          border-radius: 4px 4px;
-          box-shadow: 0 2px 6px 0px #00000078;
-        "
-      >
-        {% if not is_staff_view and not is_published and not registration_closed%}
-        <div class="shadow-md p-5 font-medium rounded-md">
-            <h2 class="text-3xl text-center mb-5 font-mono">
-              PowerExpress 2.0
-            </h2>
-            <p class="text-justify">
-              As global energy demands rise and climate challenges grow, the need for efficient grid design and sustainable energy management has never been greater. For Bangladesh, ensuring reliable power, integrating renewables, and maintaining grid stability are vital for sustainable growth. To address these challenges, PowerExpress aims to create a collaborative platform that fosters innovation, research, and practical solutions in the energy sector.  
-              <br>
-              <br>
-              <b>PowerExpress</b>, a flagship event from the <b>IEEE NSU PES Student Branch Chapter</b> brings together students, young professionals, industry leaders, and policy leaders for a day-long program of learning, innovation, and collaboration.  The program features a series of inspiring keynote talks, impactful panel discussions, and interactive competitions designed to turn fresh ideas into real-world solutions.
-              <br>
-              <br>
-              More than an event, <b>PowerExpress</b> is a platform that connects academia, industry, and young innovators, empowering participants to actively contribute to a sustainable energy future.
-              <br>
-              <br>
-              <b>Event Name</b>: PowerExpress 2.0
-              <br>
-              <b>Event Date</b>: 24th November 2025
-              <br>
-              <b>Venue</b>: North South University, Dhaka
-              <br>
-              <b>Event Type</b>: Day-long flagship program
-            </p>
-          </div>
-        <div
-          class="p-6 bg-yellow-50 border border-yellow-300 rounded text-yellow-900 text-center" style="
-          margin-top:18px"
-        >
-          {% comment %} 
-          Registration is not open yet. Please check back later.
-          {% endcomment %}
-          {% comment %} <p>
-            The form PowerExpress 2.0 has not started accepting responses yet. Check back later!
-          </p> {% endcomment %}
-          <p>
-            Registration is closed as we have reached the maximum number of
-            participants.
-          </p>
-          <p>
-            For any queries, contact - <a href="tel:+8801712902722" style="color:#0b5ed7;text-decoration:none;">+880 17 1290 2722</a>
-          </p>
-        </div>
-        {% elif not is_staff_view and registration_closed %}
-        <div
-          class="p-6 bg-red-50 border border-red-300 rounded text-red-900 text-center"
-        >
-          Registration is closed as we have reached the maximum number of
-          participants.
-        </div>
-        {% else %}
-        <!-- Step indicator
-        <div class="flex justify-between mb-8">
-          <div id="step1Indicator" class="w-1/3 text-center font-bold text-primary">1. Basic Info</div>
-          <div id="step2Indicator" class="w-1/3 text-center text-gray-500">2. Questionnaire</div>
-          <div id="step3Indicator" class="w-1/3 text-center text-gray-500">3. Payment</div>
-        </div> -->
-
-        <!-- Form wrapper -->
-        <form id="registrationForm" method="post" action="/submit-form/">
-          {% csrf_token %}
-
-          <!-- Step 1: Basic Info -->
-          <section id="step1" class="shadow-md p-5 font-medium rounded-md">
-            <h2 class="text-3xl text-center mb-5 font-mono">
-              PowerExpress 2.0
-            </h2>
-            <p class="text-justify">
-              As global energy demands rise and climate challenges grow, the need for efficient grid design and sustainable energy management has never been greater. For Bangladesh, ensuring reliable power, integrating renewables, and maintaining grid stability are vital for sustainable growth. To address these challenges, PowerExpress aims to create a collaborative platform that fosters innovation, research, and practical solutions in the energy sector.  
-              <br>
-              <br>
-              <b>PowerExpress</b>, a flagship event from the <b>IEEE NSU PES Student Branch Chapter</b> brings together students, young professionals, industry leaders, and policy leaders for a day-long program of learning, innovation, and collaboration.  The program features a series of inspiring keynote talks, impactful panel discussions, and interactive competitions designed to turn fresh ideas into real-world solutions.
-              <br>
-              <br>
-              More than an event, <b>PowerExpress</b> is a platform that connects academia, industry, and young innovators, empowering participants to actively contribute to a sustainable energy future.
-              <br>
-              <br>
-              <b>Event Name</b>: PowerExpress 2.0
-              <br>
-              <b>Event Date</b>: 24th November 2025
-              <br>
-              <b>Venue</b>: North South University, Dhaka
-              <br>
-              <b>Event Type</b>: Day-long flagship program
-            </p>
-            <hr class="my-6 w-[100%] m-auto text-gray-400">
-            <h2 class="section_heading">BASIC INFO</h2>
-            <div class="mb-5">
-              <label for="name" class="input_label">
-                Name<span
-                  class="text-red-700 ml-1"
-                  >*</span
-                >
-              </label>
-              <input
-                type="text"
-                name="name"
-                id="name"
-                placeholder="Enter your Name"
-                class="input"
-                required
-              />
-            </div>
-            <div class="mb-5">
-              <label for="email" class="input_label">
-                Email Address<span class="text-red-700 ml-1">*</span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                id="email"
-                placeholder="Enter your Email"
-                class="input"
-                required
-              />
-            </div>
-            <div class="mb-5">
-              <label for="contact_number" class="input_label">
-                Contact Number<span class="text-red-700 ml-1">*</span>
-              </label>
-              <input
-                type="number"
-                name="contact_number"
-                id="contact_number"
-                placeholder="Enter your Contact Number"
-                class="input"
-                required
-              />
-            </div>
-            <!--Select if you are a student or not-->
-            <div class="mb-5">
-              <label class="input_label">
-                Are you a student from North South University?<span class="text-red-700 ml-1">*</span>
-              </label>
-              <label class="text-lg">
-                <input
-                  class="mb-1"
-                  type="radio"
-                  name="is_student"
-                  value="student"
-                  required
-                />
-                Yes </label
-              ><br />
-              <label class="text-lg">
-                <input
-                  class="mb-1"
-                  type="radio"
-                  name="is_student"
-                  value="other_student"
-                />
-                Other</label
-              ><br />
-              <input
-                type="hidden"
-                name="is_student_bool"
-                id="is_student_bool"
-              />
-            </div>
-            <!--For Student-->
-            <div class="student_div">
-              <div class="mb-5">
-                <label for="nsu_id" class="input_label">
-                  NSU ID<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="nsu_id"
-                  id="nsu_id"
-                  placeholder="Enter your NSU ID"
-                  class="input"
-                  required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="nsu_email" class="input_label">
-                  NSU Email<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="nsu_email"
-                  id="nsu_email"
-                  placeholder="Enter your NSU email"
-                  class="input"
-                  required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="department" class="input_label">
-                  Department<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="department"
-                  id="department"
-                  placeholder="Enter your department"
-                  class="input"
-                  required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="current_year" class="input_label">
-                  Which year are you in?<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="current_year"
-                  id="current_year"
-                  placeholder="Enter your current year in univerisity"
-                  class="input"
-                  required
-                />
-              </div>
-            </div>
-            <!--For Students of other universities-->
-            <div class="other_uni_div">
-              <div class="mb-5">
-                <label for="uni_name" class="input_label">
-                  Name of your university<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="uni_name"
-                  id="uni_name"
-                  placeholder="Enter your university name"
-                  class="input"
-                  required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="uni_id" class="input_label">
-                  University ID<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="uni_id"
-                  id="uni_id"
-                  placeholder="Enter your university id"
-                  class="input"
-                  required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="other_current_year" class="input_label">
-                  Which year are you in?<span
-                    class="text-red-700 ml-1"
-                    >*</span
-                  >
-                </label>
-                <input
-                  type="text"
-                  name="other_current_year"
-                  id="other_current_year"
-                  placeholder="Enter your current year in univerisity"
-                  class="input"
-                  required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="major" class="input_label">
-                  What's your major?<span
-                    class="text-red-700 ml-1"
-                    >*</span
-                  >
-                </label>
-                <input
-                  type="text"
-                  name="major"
-                  id="major"
-                  placeholder="Enter your major"
-                  class="input"
-                  required
-                />
-              </div>
-            </div>
-            <div class="mb-5">
-              <label class="input_label">
-                Are you an IEEE Member?<span class="text-red-700 ml-1">*</span>
-              </label>
-              <label class="text-lg">
-                <input
-                  class="mb-2"
-                  type="radio"
-                  name="membership_type"
-                  value="member"
-                  required
-                />
-                IEEE Member </label
-              ><br />
-              <label class="text-lg">
-                <input type="radio" name="membership_type" value="non_ieee" />
-                Non-IEEE Member </label
-              ><br />
-            </div>
-            <div class="mb-5">
-                <label for="ieee_id" class="input_label">
-                  Your IEEE ID Number (Write N/A if you're Non-IEEE Member)<span
-                    class="text-red-700 ml-1"
-                    >*</span
-                  >
-                </label>
-                <input
-                  type="text"
-                  name="ieee_id"
-                  id="ieee_id"
-                  placeholder="Enter your Membership ID"
-                  class="input"
-                  required
-                />
-            </div>
-            <div class="flex justify-center">
-              <button
-                onclick="nextStep(1)"
-                class="continue-btn"
-                type="button"
-              >
-                Continue
-              </button>
-            </div>
-          </section>
-
-          <!-- Step 2: Questionnaire -->
-          <section
-            id="step2"
-            class="hidden shadow-md p-5 font-medium rounded-md"
-          >
-            <div class="flex items-center justify-between">
-              <!-- Back button on the left -->
-              <div class="z-10">
-                <button
-                  onclick="prevStep(1)"
-                  class="back-btn"
-                  type="button"
-                >
-                  Back
-                </button>
-              </div>
-
-              <!-- Centered Questionnaire Section -->
-              <div
-                class="absolute left-1/2 transform -translate-x-1/2 px-20 sm:px-4"
-              >
-            </div>
-          </div>
-          <h2 class="section_heading">
-            Questions
-          </h2>
-
-            <div class="mb-5">
-              <label for="question1" class="input_label">
-                1. What's your idea about this event? (Write your thoughts within 100 words)<span
-                  class="text-red-700 ml-1"
-                  >*</span
-                >
-              </label>
-              <textarea
-                id="question1"
-                name="question1"
-                maxlength="250"
-                rows="4"
-                class="w-full p-2 border border-gray-500 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
-                placeholder="Type your answer here..."
-                required
-              ></textarea>
-            </div>
-            <div class="mb-5">
-              <label for="question2" class="input_label">
-                2. What is your expectation from this program? (Write your thoughts within 100 words)<span
-                  class="text-red-700 ml-1"
-                  >*</span
-                >
-              </label>
-              <textarea
-                id="question2"
-                name="question2"
-                maxlength="250"
-                rows="4"
-                class="w-full p-2 border border-gray-500 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
-                placeholder="Type your answer here..."
-                required
-              ></textarea>
-            </div>
-            <!-- <div class="mb-5">
-              <label for="ambassador_code" class="input_label">
-                Ambassador Code<span
-                  class="text-red-700 ml-1"
-                  >*</span
-                >
-              </label>
-              <input
-                type="text"
-                name="ambassador_code"
-                id="ambassador_code"
-                placeholder="Enter your Ambassador code"
-                class="input"
-                required
-              />
-            </div> -->
-             <div class="mb-5">
-              <label class="input_label">
-                You are joining "PowerExpress 2.0" as_ (Select multiple if you want to participate in more than one)<span class="text-red-700 ml-1">*</span>
-              </label>
-              <label>
-                <input
-                  class="mb-1"
-                  type="checkbox"
-                  name="participant_type"
-                  value="participant_pstpre_contestant"
-                />
-                Idea Generation Competition Contestant</label
-              ><br />
-              <!-- <label>
-                <input
-                class="mb-1"
-                type="checkbox"
-                name="participant_type"
-                value="participant_pwrolmp_contestant"
-                />
-                Power Olympiad Contestant</label
-                ><br />
-                <label> -->
-                  <input
-                    class="mb-1"
-                    type="checkbox"
-                    name="participant_type"
-                    value="participant"
-                    required
-                    checked
-                    disabled
-                  />
-                  Just as Participant</label
-                ><br />
-              
-            </div>
-            <div class="flex justify-center">
-              <button
-                onclick="nextStep(2)"
-                class="continue-btn"
-                type="button"
-              >
-                Continue
-              </button>
-            </div>
-          </section>
-          <!-- Step 3: Poster Contest-->
-           <section
-            id="step3"
-            class="hidden shadow-md p-5 font-medium rounded-md"
-          >
-            <div class="flex items-center justify-between+">
-              <!-- Back button on the left -->
-              <div class="z-10">
-                <button
-                  onclick="prevStep(2)"
-                  class="back-btn"
-                  type="button"
-                >
-                  Back
-                </button>
-              </div>
-
-              <div
-                class="absolute left-1/2 transform -translate-x-1/2 px-20 sm:px-4"
-              >
-            </div>
-          </div>
-
-          
-          <h2 class="section_heading" style="margin-bottom: 0px">
-            Idea Generation Competition Details
-          </h2>
-          <p style="text-align:center;margin-bottom: 22px">Powering a greener tomorrow starts with your idea!</p>  
-          <div class="text-justify mb-5">
-
-            <p><b>Topic:</b> Affordable, Low-Carbon &amp; Resilient Energy Solutions for Local Energy Community (LEC) of Bangladesh</p>
-            <p><b>Goals:</b></p>
-            <ul>
-              <li>Reduce CO₂ emissions</li>
-              <li>Make energy affordable &amp; fair</li>
-              <li>Boost reliability and resilience</li>
-              <li>Achieve the lowest possible cost</li>
-            </ul>
-            <br>
-            <p><b>Winner,  1st Runner-Up,</b> and <b>2nd Runner-Up</b> will receive cash prizes for their innovative contributions!</p>
-            <br>
-            <p><b>Submission Requirement:</b></p>
-            <p>All participants must join in groups- minimum 2 members and maximum 3 members per team.</p>
-            <p>Participants registered for the Idea Generation Competition must submit an <b>abstract (100–150 words)</b> by <b>22nd November.</b></p>
-            <p>The submission link will be shared via <b>email</b> on <b>21st November</b>.</p>
-            <p>All <b>selected participants</b> must present their idea using <b>presentation slides</b> on the event day.</p>
-            <br>
-            <p>Let’s rethink, redesign, and revolutionize the future of energy for Bangladesh- one powerful idea at a time.</p>
-          </div>
-          <hr class="my-6 w-[100%] m-auto text-gray-400">
-          <p class="text-justify mb-5">Each team can have 3 members (maximum). All of the members will have to register for the event. Only one member from each team will have to register for his team.</p>
-             <div class="mb-5">
-              <label class="input_label">
-                Are you registering for your team?<span class="text-red-700 ml-1">*</span>
-              </label>
-              <label>
-                <input
-                  class="mb-1"
-                  type="radio"
-                  name="registering_for_team"
-                  value="True"
-                  required
-                />
-                Yes, I'm registering for my team.</label
-              ><br />
-              <label>
-                <input
-                  class="mb-1"
-                  type="radio"
-                  name="registering_for_team"
-                  value="False"
-                />
-                No, one of my teammate will register.</label
-              ><br />
-            </div>
-            <div class="mb-5" id="team_count_section">
-              <label class="input_label">
-                How many member are there in your team?<span class="text-red-700 ml-1">*</span>
-              </label>
-              <label>
-                <input
-                  class="mb-1"
-                  type="radio"
-                  name="team_mem_count"
-                  value="two"
-                  required
-                />
-                Two</label
-              ><br />
-              <label>
-                <input
-                  class="mb-1"
-                  type="radio"
-                  name="team_mem_count"
-                  value="three"
-                />
-                Three</label
-              ><br />
-            </div>
-            <div id="mem_1">
-              <div class="mb-5">
-                <label for="mem_name_1" class="input_label">
-                  Name of your team member 1<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                type="text"
-                name="mem_name_1"
-                id="mem_name_1"
-                placeholder="Enter your first team member name"
-                class="input"
-                required
-                />
-            </div>
-            <div class="mb-5">
-              <label for="mem_uni_name_1" class="input_label">
-                University Name<span class="text-red-700 ml-1">*</span>
-              </label>
-              <input
-                type="text"
-                name="mem_uni_name_1"
-                id="mem_uni_name_1"
-                placeholder="Enter your first team member university name"
-                class="input"
-                required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="mem_uni_id_1" class="input_label">
-                University ID<span
-                  class="text-red-700 ml-1"
-                  >*</span
-                >
-              </label>
-              <input
-              type="number"
-              name="mem_uni_id_1"
-              id="mem_uni_id_1"
-              placeholder="Enter your first team member university id"
-              class="input"
-              required
-              />
-            </div>
-            </div>
-            <div id="mem_2">
-              <div class="mb-5">
-                <label for="mem_name_2" class="input_label">
-                  Name of your team member 2<span class="text-red-700 ml-1">*</span>
-                </label>
-                <input
-                type="text"
-                name="mem_name_2"
-                id="mem_name_2"
-                placeholder="Enter your second team member name"
-                class="input"
-                required
-                />
-            </div>
-            <div class="mb-5">
-              <label for="mem_uni_name_2" class="input_label">
-                University Name<span class="text-red-700 ml-1">*</span>
-              </label>
-              <input
-                type="text"
-                name="mem_uni_name_2"
-                id="mem_uni_name_2"
-                placeholder="Enter your second team member university name"
-                class="input"
-                required
-                />
-              </div>
-              <div class="mb-5">
-                <label for="mem_uni_id_2" class="input_label">
-                University ID<span
-                  class="text-red-700 ml-1"
-                  >*</span
-                >
-              </label>
-              <input
-              type="number"
-              name="mem_uni_id_2"
-              id="mem_uni_id_2"
-              placeholder="Enter your second team member university id"
-              class="input"
-              required
-              />
-            </div>
-            </div>
-            <div class="flex justify-center">
-              <button
-                onclick="nextStep(3)"
-                class="continue-btn"
-                type="button"
-              >
-                Continue
-              </button>
-            </div>
-          </section>
-
-          <!-- Step 4: Payment -->
-          <section
-            id="step4"
-            class="hidden shadow-md p-5 font-medium rounded-md"
-          >
-            <!--  back button and title  -->
-            <div class="flex items-center justify-between mb-8">
-              <!-- Back button on the left -->
-              <div class="z-10">
-                <button
-                  onclick="prevStep(3)"
-                  class="back-btn"
-                  type="button"
-                >
-                  Back
-                </button>
-              </div>
-          </div>
-            <h2 class="section_heading">Payment</h2>
-            <p>
-              IEEE Member 350 taka <br />
-              Non-IEEE Member 450 taka
-              <br />
-              <br />
-              <span style="font-weight: bold">Bkash: +8801734973058</span>
-            </p>
-            <div class="my-8">
-              <label class="block font-semibold mb-1">
-                Select Payment Method:<span class="text-red-700 ml-1">*</span>
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="payment_method"
-                  value="Bkash"
-                  required
-                  checked
-                />
-                Bkash (Send Money)
-              </label>
-            </div>
-
-            <div class="mb-5">
-              <label for="transaction_id" class="block font-semibold mb-1">
-                Transaction ID<span class="text-red-700 ml-1">*</span>
-              </label>
-              <input
-                type="text"
-                name="transaction_id"
-                id="transaction_id"
-                placeholder="Enter your Transaction ID"
-                class="input"
-                required
-              />
-            </div>
-
-            <div class="mb-5">
-              <label for="comments" class="block font-semibold mb-1">
-                Any Comments?
-              </label>
-              <input
-                type="text"
-                name="comments"
-                id="comments"
-                placeholder="Share your thoughts"
-                class="input"
-              />
-            </div>
-
-            {% comment %}
-            <!-- shirt table  -->
-            <h2 class="mb-1">Size Chart</h2>
-
-            <div class="overflow-x-auto">
-              <table
-                class="w-full border-collapse text-xs sm:text-lg min-w-full bg-gray-50"
-              >
-                <thead>
-                  <tr>
-                    <th
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 text-left font-semibold text-gray-700"
-                    >
-                      Description
-                    </th>
-                    <th
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 text-center font-semibold text-gray-700"
-                    >
-                      S
-                    </th>
-                    <th
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 text-center font-semibold text-gray-700"
-                    >
-                      M
-                    </th>
-                    <th
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 text-center font-semibold text-gray-700"
-                    >
-                      L
-                    </th>
-                    <th
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 text-center font-semibold text-gray-700"
-                    >
-                      XL
-                    </th>
-                    <th
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 text-center font-semibold text-gray-700"
-                    >
-                      2XL
-                    </th>
-                    <th
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 text-center font-semibold text-gray-700"
-                    >
-                      3XL
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr class="hover:bg-gray-50">
-                    <td
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 font-semibold text-gray-700"
-                    >
-                      Chest Width
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      36"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      38"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      40"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      42"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      44"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      46"
-                    </td>
-                  </tr>
-                  <tr class="hover:bg-gray-50">
-                    <td
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 font-semibold text-gray-700"
-                    >
-                      Chest Height
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      25"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      26"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      27"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      28"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      29"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      30"
-                    </td>
-                  </tr>
-                  <tr class="hover:bg-gray-50">
-                    <td
-                      class="border border-gray-300 bg-gray-50 px-2 py-2 sm:px-3 font-semibold text-gray-700"
-                    >
-                      Body Length
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      26"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      27"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      28"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      29"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      30"
-                    </td>
-                    <td
-                      class="border border-gray-300 px-2 py-2 sm:px-3 text-center"
-                    >
-                      31"
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="mb-4 mt-3">
-              <label class="block font-semibold mb-1">
-                Select T-Shirt size<span class="text-red-700 ml-1">*</span>
-              </label>
-              <div class="flex flex-col gap-2 ml-6">
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="tshirt_size"
-                    value="S"
-                    class="form-radio text-blue-500"
-                    required
-                  />
-                  S
-                </label>
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="tshirt_size"
-                    value="M"
-                    class="form-radio text-blue-500"
-                    required
-                  />
-                  M
-                </label>
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="tshirt_size"
-                    value="L"
-                    class="form-radio text-blue-500"
-                    required
-                  />
-                  L
-                </label>
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="tshirt_size"
-                    value="XL"
-                    class="form-radio text-blue-500"
-                    required
-                  />
-                  XL
-                </label>
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="tshirt_size"
-                    value="2XL"
-                    class="form-radio text-blue-500"
-                    required
-                  />
-                  2XL
-                </label>
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="tshirt_size"
-                    value="3XL"
-                    class="form-radio text-blue-500"
-                    required
-                  />
-                  3XL
-                </label>
-              </div>
-            </div>
-            {% endcomment %}
-            <div class="flex justify-center">
-              <button
-                type="submit"
-                class="text-[#74BA2D] bg-[#D7F5BF] px-5 py-2 rounded-md hover:bg-[#c4f49d] duration-300 ease-in-out transition-all"
-              >
-                Submit
-              </button>
-            </div>
-          </section>
-        </form>
-        {% endif %}
-      </div>
-    </div>
-
-    {% if is_staff_view %}
-    <div
-      id="publishModal"
-      class="fixed inset-0 hidden bg-black/20 backdrop-blur-sm flex items-center justify-center z-50"
-    >
-      <div class="bg-white rounded-xl shadow-lg w-96 p-6 text-center">
-        <h2 class="text-xl font-semibold mb-4">Confirm Publish</h2>
-        <p class="text-gray-600 mb-6">
-          Are you sure you want to publish this form? Once published, it will be
-          available for users to fill.
-        </p>
-        <div class="flex justify-center gap-4">
-          <button
-            id="cancelPublish"
-            class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400"
-          >
-            Cancel
-          </button>
-          <button
-            id="confirmPublish"
-            class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
-          >
-            Yes, Publish
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Unpublish Confirmation Modal -->
-    <div
-      id="unpublishModal"
-      class="fixed inset-0 hidden bg-black/20 backdrop-blur-sm flex items-center justify-center z-50"
-    >
-      <div class="bg-white rounded-xl shadow-lg w-96 p-6 text-center">
-        <h2 class="text-xl font-semibold mb-4">Confirm Unpublish</h2>
-        <p class="text-gray-600 mb-6">
-          Are you sure you want to unpublish this form? Users will no longer be
-          able to fill it.
-        </p>
-        <div class="flex justify-center gap-4">
-          <button
-            id="cancelUnpublish"
-            class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400"
-          >
-            Cancel
-          </button>
-          <button
-            id="confirmUnpublish"
-            class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-          >
-            Yes, Unpublish
-          </button>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
-    <div class="flex justify-center items-center mt-3 h-15 mx-5 text-center sticky top-140 ">
-      <p class="text-black font-semibold italic">
-        <small>2025 © All rights reserved by IEEE NSU Student Branch</small>
+    {% if not is_staff_view and not is_published %}
+    <!-- Registration Closed -->
+    <div class="card-panel p-6">
+      <h2 class="text-2xl font-bold text-center mb-4" style="color:#122812">Power Policy &amp; Innovation Summit</h2>
+      <p class="text-justify text-sm leading-relaxed mb-4" style="color:#1a3a1a">
+        The global transition towards sustainable energy systems and smart grid technologies demands advanced tools for system modeling, analysis, and optimization. Hence, shaping the future of Bangladesh's power industry requires leadership, smart planning, and well-planned policies.
+        <br><br>
+        To bridge this gap, the <strong>IEEE NSU Power &amp; Energy Society (PES) Student Branch Chapter</strong>, in collaboration with the IEEE NSU Student Branch, IEEE NSU Robotics and Automation Society (RAS) Student Branch Chapter, IEEE NSU Industry Application Society (IAS) Student Branch Chapter, IEEE NSU Women in Engineering (WIE) Affinity Group, and the Department of Electrical and Computer Engineering (ECE), North South University, is organising <strong>"Power Policy &amp; Innovation Summit"</strong> — an interactive two-day National Flagship event bringing students, young innovators, industry leaders, experienced professionals and policymakers from all over the country together to collaborate, learn, and innovate.
+        <br><br>
+        <strong>Event Name:</strong> Power Policy Innovation &amp; Summit<br>
+        <strong>Event Date:</strong> 23 October and 31 October 2026<br>
+        <strong>Venue:</strong> North South University
       </p>
+      <div class="bg-yellow-50 border border-yellow-300 rounded p-4 text-center text-yellow-900 mt-4">
+        <p class="font-semibold">Registration is not open yet.</p>
+        <p class="text-sm mt-1">Please check back later or contact us for more information.</p>
+        <p class="text-sm mt-2">For queries, call or WhatsApp: <a href="tel:+8801712902722" class="font-semibold underline text-yellow-800">+880 1712-902722</a></p>
+      </div>
     </div>
+
+    {% else %}
+    <!-- Registration Form -->
+    <form id="registrationForm" method="post" action="/submit-form/" novalidate>
+      {% csrf_token %}
+
+      <!-- Hidden type field -->
+      <input type="hidden" name="registration_type" id="reg_type_input" value="" />
+
+      <!-- ══════════════════════════════════════════
+           STEP 0 — Registration Type Selection
+      ══════════════════════════════════════════ -->
+      <div id="step0" class="card-panel p-6">
+        <h2 class="section_heading">Choose Your Registration Type</h2>
+        <p class="text-center text-sm text-gray-600 mb-6">Select the category that applies to you</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="type-card" id="card-participant" onclick="selectType('participant')">
+            <div class="icon">🎓</div>
+            <h3>General Participant / Delegate</h3>
+            <p>Attend keynotes, panel discussions, and expert-led sessions.</p>
+            <p class="mt-2 text-xs font-semibold" style="color:#479A46">IEEE Member: BDT 600 &nbsp;|&nbsp; Non-IEEE: BDT 750</p>
+          </div>
+          <div class="type-card" id="card-competition" onclick="selectType('competition')">
+            <div class="icon">🏆</div>
+            <h3>Competition</h3>
+            <p>Enter the PPIS Policy Innovation Challenge with your team.</p>
+            <p class="mt-2 text-xs font-semibold" style="color:#479A46">Team Registration: BDT 2,500</p>
+          </div>
+        </div>
+        <div class="flex justify-end mt-6">
+          <button type="button" id="step0Next" class="continue-btn" onclick="goFromStep0()" disabled>Continue →</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           STEP 1 — Personal Profile
+      ══════════════════════════════════════════ -->
+      <div id="step1" class="card-panel p-6 hidden">
+        <!-- Step bar -->
+        <div id="stepBar1" class="step-bar mb-6"></div>
+        <h2 class="section_heading">Personal &amp; Professional Profile</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+          <div>
+            <label class="input_label">Full Name <span class="text-red-600">*</span></label>
+            <input type="text" name="name" class="input" placeholder="Enter your full name" required />
+          </div>
+          <div>
+            <label class="input_label">Contact Email <span class="text-red-600">*</span></label>
+            <input type="email" name="email" class="input" placeholder="Enter your email address" required />
+          </div>
+          <div>
+            <label class="input_label">WhatsApp / Phone Number <span class="text-red-600">*</span></label>
+            <input type="tel" name="phone" class="input" placeholder="+880 1X XXXX XXXX" required />
+          </div>
+          <div>
+            <label class="input_label">University / Institution / Organization <span class="text-red-600">*</span></label>
+            <input type="text" name="university" class="input" placeholder="Your institution name" required />
+          </div>
+          <div>
+            <label class="input_label">Department / Field of Study <span class="text-red-600">*</span></label>
+            <select name="department" class="input" required>
+              <option value="" disabled selected>Select department</option>
+              <option value="eee">Electrical &amp; Electronic Engineering</option>
+              <option value="mech_civil">Mechanical / Civil Engineering</option>
+              <option value="bba_econ">Business Administration / Economics</option>
+              <option value="env_policy">Environmental Science &amp; Policy</option>
+              <option value="cs">Computer Science</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="input_label">Student ID / Designation <span class="text-red-600">*</span></label>
+            <input type="text" name="student_id" class="input" placeholder="Your student ID or job title" required />
+          </div>
+          <div class="md:col-span-2">
+            <label class="input_label">Level of Study / Status <span class="text-red-600">*</span></label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+              <label class="sdg-label"><input type="radio" name="study_level" value="undergrad" required /> Undergraduate Student</label>
+              <label class="sdg-label"><input type="radio" name="study_level" value="grad" /> Graduate / Master's Student</label>
+              <label class="sdg-label"><input type="radio" name="study_level" value="fresh_grad" /> Fresh Graduate</label>
+              <label class="sdg-label"><input type="radio" name="study_level" value="faculty" /> Faculty / Academician</label>
+              <label class="sdg-label"><input type="radio" name="study_level" value="industry" /> Industry Professional</label>
+            </div>
+          </div>
+
+          <!-- IEEE ID — competition only -->
+          <div id="ieee_id_field" class="md:col-span-2 hidden">
+            <label class="input_label">IEEE Membership ID <span class="text-gray-400 text-sm">(Optional)</span></label>
+            <input type="text" name="ieee_id" class="input" placeholder="Your IEEE Membership ID" />
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="input_label">Campus Ambassador Referral Name / Code <span class="text-gray-400 text-sm">(Optional)</span></label>
+            <input type="text" name="ambassador_code" class="input" placeholder="Enter referral name or code if any" />
+          </div>
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button type="button" class="back-btn" onclick="goToStep(0)">← Back</button>
+          <button type="button" class="continue-btn" onclick="nextFromStep1()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           STEP 2P — Participant Payment
+      ══════════════════════════════════════════ -->
+      <div id="step2p" class="card-panel p-6 hidden">
+        <div id="stepBar2p" class="step-bar mb-6"></div>
+        <h2 class="section_heading">Payment Details</h2>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm" style="color:#1a3060">
+          <p class="font-semibold mb-1">Bkash Payment</p>
+          <p>Send to: <strong>01728104471</strong> (Meraz Irteza Rivly — Coordinator, Finance &amp; Corporate Team)</p>
+          <div class="mt-2 flex gap-4 flex-wrap">
+            <span class="font-medium">IEEE Member: <strong>BDT 600</strong></span>
+            <span class="font-medium">Non-IEEE Member: <strong>BDT 750</strong></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="input_label">IEEE Membership Status <span class="text-red-600">*</span></label>
+            <div class="flex gap-3 mt-1">
+              <label class="sdg-label flex-1 justify-center"><input type="radio" name="membership_type" value="ieee" required /> IEEE Member (BDT 600)</label>
+              <label class="sdg-label flex-1 justify-center"><input type="radio" name="membership_type" value="non_ieee" /> Non-IEEE Member (BDT 750)</label>
+            </div>
+          </div>
+          <div>
+            <label class="input_label">Bkash Transaction ID <span class="text-red-600">*</span></label>
+            <input type="text" name="transaction_id" class="input" placeholder="Enter your Bkash transaction ID" required />
+          </div>
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button type="button" class="back-btn" onclick="goToStep(1)">← Back</button>
+          <button type="submit" id="submitBtnP" class="continue-btn">Submit Registration</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           STEP 2C — Team Composition
+      ══════════════════════════════════════════ -->
+      <div id="step2c" class="card-panel p-6 hidden">
+        <div id="stepBar2c" class="step-bar mb-6"></div>
+        <h2 class="section_heading">Team Composition</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 mb-5">
+          <div>
+            <label class="input_label">Team Name <span class="text-red-600">*</span></label>
+            <input type="text" name="team_name" class="input" placeholder="Enter your team name" required />
+          </div>
+          <div>
+            <label class="input_label">Total Number of Members <span class="text-red-600">*</span></label>
+            <select name="total_members" id="totalMembersSelect" class="input" required onchange="updateMemberSections()">
+              <option value="" disabled selected>Select</option>
+              <option value="1">Solo (1 Member)</option>
+              <option value="2">2 Members</option>
+              <option value="3">3 Members</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Member 2 -->
+        <div id="member2section" class="member-block hidden">
+          <h4>Member 2 Details</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+            <div><label class="input_label">Full Name</label><input type="text" name="mem2_name" class="input" placeholder="Member 2 full name" /></div>
+            <div><label class="input_label">University / Institution</label><input type="text" name="mem2_university" class="input" placeholder="Member 2 university" /></div>
+            <div><label class="input_label">Department</label><input type="text" name="mem2_department" class="input" placeholder="Department or field of study" /></div>
+            <div><label class="input_label">Student ID</label><input type="text" name="mem2_student_id" class="input" placeholder="Student ID" /></div>
+            <div><label class="input_label">Email</label><input type="email" name="mem2_email" class="input" placeholder="Email address" /></div>
+            <div><label class="input_label">Phone Number</label><input type="tel" name="mem2_phone" class="input" placeholder="WhatsApp / phone" /></div>
+          </div>
+        </div>
+
+        <!-- Member 3 -->
+        <div id="member3section" class="member-block hidden">
+          <h4>Member 3 Details <span class="text-gray-400 font-normal">(Optional)</span></h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+            <div><label class="input_label">Full Name</label><input type="text" name="mem3_name" class="input" placeholder="Member 3 full name" /></div>
+            <div><label class="input_label">University / Institution</label><input type="text" name="mem3_university" class="input" placeholder="Member 3 university" /></div>
+            <div><label class="input_label">Department</label><input type="text" name="mem3_department" class="input" placeholder="Department or field of study" /></div>
+            <div><label class="input_label">Student ID</label><input type="text" name="mem3_student_id" class="input" placeholder="Student ID" /></div>
+            <div><label class="input_label">Email</label><input type="email" name="mem3_email" class="input" placeholder="Email address" /></div>
+            <div><label class="input_label">Phone Number</label><input type="tel" name="mem3_phone" class="input" placeholder="WhatsApp / phone" /></div>
+          </div>
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button type="button" class="back-btn" onclick="goToStep(1)">← Back</button>
+          <button type="button" class="continue-btn" onclick="goToStep('3c')">Continue →</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           STEP 3C — Project Track & Innovation
+      ══════════════════════════════════════════ -->
+      <div id="step3c" class="card-panel p-6 hidden">
+        <div id="stepBar3c" class="step-bar mb-6"></div>
+        <h2 class="section_heading">Project Track &amp; Innovation Overview</h2>
+
+        <div class="grid grid-cols-1 gap-5">
+          <div>
+            <label class="input_label">Selected Problem Track <span class="text-red-600">*</span></label>
+            <div class="grid grid-cols-1 gap-2 mt-1">
+              <label class="sdg-label">
+                <input type="radio" name="track" value="track_a" required />
+                <div><strong>Track A:</strong> Grid Modernization, Smart Grids &amp; Load-Shedding Mitigation</div>
+              </label>
+              <label class="sdg-label">
+                <input type="radio" name="track" value="track_b" />
+                <div><strong>Track B:</strong> Renewable Integration, Energy Storage &amp; Decarbonization</div>
+              </label>
+              <label class="sdg-label">
+                <input type="radio" name="track" value="track_c" />
+                <div><strong>Track C:</strong> Energy Policy, FDI Frameworks &amp; Market Restructuring</div>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="input_label">Project / Proposal Title <span class="text-red-600">*</span></label>
+            <input type="text" name="project_title" id="project_title" class="input" placeholder="Enter your project or proposal title" required />
+          </div>
+
+          <div>
+            <label class="input_label">
+              Problem Statement <span class="text-red-600">*</span>
+              <span class="text-gray-400 text-xs font-normal"> — 300 to 400 words</span>
+            </label>
+            <textarea name="problem_statement" id="problem_statement" class="input" rows="7"
+              placeholder="Briefly describe the specific energy or policy challenge in Bangladesh your team is addressing..."></textarea>
+            <div class="word-counter" id="ps_counter">0 / 300–400 words</div>
+          </div>
+
+          <div>
+            <label class="input_label">
+              Proposed Solution Summary <span class="text-red-600">*</span>
+            </label>
+            <textarea name="proposed_solution" id="proposed_solution" class="input" rows="6"
+              placeholder="Detail your technology-based or policy-driven solution and its implementation feasibility..."></textarea>
+            <div class="word-counter" id="sol_counter">0 words</div>
+          </div>
+
+          <div>
+            <label class="input_label">Targeted SDG Alignment <span class="text-red-600">*</span> <span class="text-gray-400 text-xs font-normal">— Select all that apply</span></label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 7" /> SDG 7: Affordable and Clean Energy</label>
+              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 9" /> SDG 9: Industry, Innovation, and Infrastructure</label>
+              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 11" /> SDG 11: Sustainable Cities and Communities</label>
+              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 13" /> SDG 13: Climate Action</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button type="button" class="back-btn" onclick="goToStep('2c')">← Back</button>
+          <button type="button" class="continue-btn" onclick="nextFromStep3c()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           STEP 4C — Abstract Upload + Payment
+      ══════════════════════════════════════════ -->
+      <div id="step4c" class="card-panel p-6 hidden">
+        <div id="stepBar4c" class="step-bar mb-6"></div>
+        <h2 class="section_heading">Abstract Upload &amp; Payment</h2>
+
+        <!-- Abstract upload -->
+        <div class="mb-6">
+          <label class="input_label">Abstract / Concept Paper <span class="text-red-600">*</span>
+            <span class="text-gray-400 text-xs font-normal"> — PDF only, 400–450 words, max 10 MB</span>
+          </label>
+          <div class="file-drop" id="fileDrop" onclick="document.getElementById('abstract_file_input').click()">
+            <div id="fileDropText">
+              <svg class="w-10 h-10 mx-auto mb-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+              <p class="font-medium text-gray-700">Click to upload your abstract</p>
+              <p class="text-sm text-gray-500 mt-1">PDF format · Max 10 MB</p>
+            </div>
+            <input type="file" id="abstract_file_input" name="abstract_file" accept=".pdf" class="hidden" onchange="handleFileSelect(this)" />
+          </div>
+          <p id="fileError" class="text-red-600 text-sm mt-1 hidden"></p>
+        </div>
+
+        <!-- Payment -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 text-sm" style="color:#1a3060">
+          <p class="font-semibold mb-1">Bkash Payment</p>
+          <p>Send to: <strong>01728104471</strong> (Meraz Irteza Rivly — Coordinator, Finance &amp; Corporate Team)</p>
+          <p class="mt-1">Team Registration Fee: <strong>BDT 2,500</strong></p>
+        </div>
+
+        <div>
+          <label class="input_label">Bkash Transaction ID <span class="text-red-600">*</span></label>
+          <input type="text" name="comp_transaction_id" class="input" placeholder="Enter your Bkash transaction ID" required />
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button type="button" class="back-btn" onclick="goToStep('3c')">← Back</button>
+          <button type="submit" id="submitBtnC" class="continue-btn">Submit Registration</button>
+        </div>
+      </div>
+
+    </form>
+    {% endif %}
+  </div>
+
+  {% if is_staff_view %}
+  <!-- Publish / Unpublish modals -->
+  <div id="publishModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-80 shadow-xl">
+      <h3 class="text-lg font-bold mb-2">Publish Registration?</h3>
+      <p class="text-sm text-gray-600 mb-4">This will open the registration form to the public.</p>
+      <div class="flex gap-3 justify-end">
+        <button id="cancelPublish" class="back-btn">Cancel</button>
+        <button id="confirmPublish" class="continue-btn">Publish</button>
+      </div>
+    </div>
+  </div>
+  <div id="unpublishModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-80 shadow-xl">
+      <h3 class="text-lg font-bold mb-2">Close Registration?</h3>
+      <p class="text-sm text-gray-600 mb-4">This will hide the registration form from the public.</p>
+      <div class="flex gap-3 justify-end">
+        <button id="cancelUnpublish" class="back-btn">Cancel</button>
+        <button id="confirmUnpublish" class="continue-btn" style="background:#c0392b">Close Form</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-  const studentRadio = document.querySelector('input[name="is_student"][value="student"]');
-  const otherStudentRadio = document.querySelector('input[name="is_student"][value="other_student"]');
-  const studentDivs = document.querySelectorAll('.student_div');
-  const otherStudentDivs = document.querySelectorAll('.other_uni_div');
+// ── State ─────────────────────────────────────────────
+let regType = '';   // 'participant' | 'competition'
+let currentStep = '0';
 
-  const teamRadios = document.querySelectorAll('input[name="registering_for_team"]');
-  const teamCountRadios = document.querySelectorAll('input[name="team_mem_count"]');
-  const teamCountSection = document.getElementById("team_count_section");
-  const mem1 = document.getElementById("mem_1");
-  const mem2 = document.getElementById("mem_2");
+// ── Step definitions ──────────────────────────────────
+const PARTICIPANT_STEPS = ['0','1','2p'];
+const COMPETITION_STEPS = ['0','1','2c','3c','4c'];
+const STEP_LABELS = {
+  participant: ['Type','Profile','Payment'],
+  competition: ['Type','Profile','Team','Project','Submit'],
+};
 
-  const mem1Inputs = mem1.querySelectorAll("input");
-  const mem2Inputs = mem2.querySelectorAll("input");
+function getSteps() { return regType === 'competition' ? COMPETITION_STEPS : PARTICIPANT_STEPS; }
 
-  // --- Toggle Student Sections ---
-  function toggleSections() {
-    if (studentRadio.checked) {
-      studentDivs.forEach(div => div.style.display = 'block');
-      otherStudentDivs.forEach(div => div.style.display = 'none');
-
-      document.querySelectorAll('.student_div input').forEach(f => f.required = true);
-      document.querySelectorAll('.other_uni_div input').forEach(f => f.required = false);
-
-    } else if (otherStudentRadio.checked) {
-      studentDivs.forEach(div => div.style.display = 'none');
-      otherStudentDivs.forEach(div => div.style.display = 'block');
-
-      document.querySelectorAll('.student_div input').forEach(f => f.required = false);
-      document.querySelectorAll('.other_uni_div input').forEach(f => f.required = true);
-    }
-  }
-
-  studentDivs.forEach(div => div.style.display = 'none');
-  otherStudentDivs.forEach(div => div.style.display = 'none');
-  studentRadio.addEventListener('change', toggleSections);
-  otherStudentRadio.addEventListener('change', toggleSections);
-
-// --- Toggle Team Sections ---
-  function toggleTeamSection() {
-    const selected = document.querySelector('input[name="registering_for_team"]:checked');
-
-    if (selected && selected.value === "True") {
-      teamCountSection.style.display = "block";
-    } else {
-      teamCountSection.style.display = "none";
-      mem1.style.display = "none";
-      mem2.style.display = "none";
-
-      mem1Inputs.forEach(i => i.required = false);
-      mem2Inputs.forEach(i => i.required = false);
-
-      const tmc = document.querySelectorAll('input[name="team_mem_count"]')
-      tmc.forEach(i => i.required = false)
-    }
-  }
-
-  // --- Toggle Member Sections (refactored like your student toggle) ---
-  function toggleMemberSection() {
-    const selected = document.querySelector('input[name="team_mem_count"]:checked');
-
-    if (selected && selected.value === "two") {
-      // Show only member 1
-      mem1.style.display = "block";
-      mem2.style.display = "none";
-
-      mem1Inputs.forEach(i => i.required = true);
-      mem2Inputs.forEach(i => i.required = false);
-
-    } else if (selected && selected.value === "three") {
-      // Show both members
-      mem1.style.display = "block";
-      mem2.style.display = "block";
-
-      mem1Inputs.forEach(i => i.required = true);
-      mem2Inputs.forEach(i => i.required = true);
-
-    } else {
-      // Hide both if no selection
-      mem1.style.display = "none";
-      mem2.style.display = "none";
-
-      mem1Inputs.forEach(i => i.required = false);
-      mem2Inputs.forEach(i => i.required = false);
-    }
-  }
-
-  // --- Initialize hidden state ---
-  teamCountSection.style.display = "none";
-  mem1.style.display = "none";
-  mem2.style.display = "none";
-
-  // --- Add Event Listeners ---
-  teamRadios.forEach(r => r.addEventListener("change", toggleTeamSection));
-  teamCountRadios.forEach(r => r.addEventListener("change", toggleMemberSection));
-
-  // --- Initialize once ---
-  toggleTeamSection();
-  toggleMemberSection();
-});
-
-
-// --- Step Navigation Logic ---
-let lastStepBeforePayment = 2; // Tracks what came before step 4
-
-function nextStep(currentStep) {
-  if (!validateStep(currentStep)) {
-    Swal.fire("Please fill in all the required fields!");
-    return;
-  }
-
-  if (currentStep === 2) {
-    const participantType = document.querySelector('input[name="participant_type"]:checked');
-    if (!participantType) {
-      Swal.fire("Please select a participation type!");
-      return;
-    }
-
-    if (participantType.value === "participant_pstpre_contestant") {
-      const step3 = document.getElementById("step3");
-        step3.querySelectorAll("input").forEach(input => {
-          input.disabled = false;
-        });
-      lastStepBeforePayment = 3;
-      goToStep(3);
-    } else {
-        const step3 = document.getElementById("step3");
-        step3.querySelectorAll("input").forEach(input => {
-          input.disabled = true;
-        });
-      lastStepBeforePayment = 2;
-      goToStep(4);
-    }
-    return;
-  }
-
-    // ✅ Poster validation
-  if (currentStep === 3) {
-    const registeringForTeam = document.querySelector('input[name="registering_for_team"]:checked');
-    if (!registeringForTeam) {
-      Swal.fire("Please select whether you're registering for your team!");
-      return;
-    }
-
-    if (registeringForTeam.value === "True") {
-      const teamCount = document.querySelector('input[name="team_mem_count"]:checked');
-      if (!teamCount) {
-        Swal.fire("Please select how many members are in your team!");
-        return;
-      }
-    }
-  }
-
-  goToStep(currentStep + 1);
-}
-
-function prevStep(currentStep) {
-  if (currentStep === 3) {
-    goToStep(lastStepBeforePayment);
-  } else if (currentStep === 2){
-    goToStep(2);
-  } else if (currentStep === 1){
-    goToStep(1);
-  } else {
-    goToStep(currentStep - 1);
-  }
-}
-
-function goToStep(stepNumber) {
-  document.querySelectorAll("section[id^='step']").forEach(sec => sec.classList.add("hidden"));
-  const nextSection = document.getElementById(`step${stepNumber}`);
-  if (nextSection) nextSection.classList.remove("hidden");
-  updateIndicators(stepNumber);
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function validateStep(stepNumber) {
-  const currentStep = document.getElementById(`step${stepNumber}`);
-  if (!currentStep) return true;
-  const requiredFields = currentStep.querySelectorAll("[required]");
-  
-  let isValid = true;
-
-  requiredFields.forEach(field => {
-    let fieldWrapper = field.closest("div");
-
-    if (field.type === 'radio') {
-      // Get all radio buttons with the same name
-      const radioGroup = currentStep.querySelectorAll(`[name="${field.name}"]`);
-      
-      // Check if at least one radio is selected
-      const isChecked = Array.from(radioGroup).some(radio => (radio.checked && !radio.disabled));
-
-      if (!isChecked) {
-        isValid = false;
-        radioGroup.forEach(radio => {
-          const wrapper = radio.closest('label') || radio;
-          wrapper.style.color = "#b02424ff";
-        });
-      } else {
-        radioGroup.forEach(radio => {
-          const wrapper = radio.closest('label') || radio;
-          wrapper.style.color = "";
-        });
-      }
-    } else if (!field.value.trim()) {
-      isValid = false;
-      field.style.border = "1px solid #f13131";
-    } else {
-      field.style.border = "";
-    }
+// ── Step bar renderer ─────────────────────────────────
+function renderStepBar(barId) {
+  const bar = document.getElementById(barId);
+  if (!bar) return;
+  const steps = getSteps();
+  const labels = STEP_LABELS[regType] || [];
+  const idx = steps.indexOf(currentStep);
+  let html = '';
+  steps.forEach((s, i) => {
+    const state = i < idx ? 'done' : i === idx ? 'active' : '';
+    html += `<div class="step-dot ${state}" title="${labels[i]||''}">${i < idx ? '✓' : i+1}</div>`;
+    if (i < steps.length - 1) html += `<div class="step-line ${i < idx ? 'done' : ''}"></div>`;
   });
-  
-  return isValid;
+  bar.innerHTML = html;
 }
 
-function updateIndicators(step) {
-  if (!document.getElementById('step1Indicator')) return;
-  [1, 2, 3, 4].forEach(num => {
-    const indicator = document.getElementById(`step${num}Indicator`);
-    if (indicator) {
-      indicator.classList.remove("text-primary", "font-bold");
-      indicator.classList.add("text-gray-500");
-    }
+// ── Show/hide step ─────────────────────────────────────
+const ALL_STEPS = ['step0','step1','step2p','step2c','step3c','step4c'];
+function goToStep(step) {
+  currentStep = String(step);
+  ALL_STEPS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
   });
-  const active = document.getElementById(`step${step}Indicator`);
-  if (active) {
-    active.classList.remove("text-gray-500");
-    active.classList.add("text-primary", "font-bold");
+  const target = document.getElementById('step' + currentStep);
+  if (target) {
+    target.classList.remove('hidden');
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // Render step bars
+  ['stepBar1','stepBar2p','stepBar2c','stepBar3c','stepBar4c'].forEach(id => renderStepBar(id));
 }
 
+// ── Type selection ─────────────────────────────────────
+function selectType(type) {
+  regType = type;
+  document.getElementById('reg_type_input').value = type;
+  document.getElementById('card-participant').classList.toggle('selected', type === 'participant');
+  document.getElementById('card-competition').classList.toggle('selected', type === 'competition');
+  document.getElementById('step0Next').disabled = false;
+  // Show/hide IEEE ID field
+  const ieeeField = document.getElementById('ieee_id_field');
+  if (ieeeField) ieeeField.classList.toggle('hidden', type !== 'competition');
+}
 
-// --- Form Submission ---
-document.getElementById('registrationForm').addEventListener('submit', function (e) {
+function goFromStep0() {
+  if (!regType) return;
+  goToStep(1);
+}
+
+// ── Step 1 → next ──────────────────────────────────────
+function nextFromStep1() {
+  // Basic validation
+  const required = document.querySelectorAll('#step1 [required]');
+  for (const el of required) {
+    if (!el.value.trim() && el.type !== 'radio') { el.focus(); return; }
+  }
+  // Check radio for study_level
+  const studyLevel = document.querySelector('input[name="study_level"]:checked');
+  if (!studyLevel) { Swal.fire('Required', 'Please select your level of study / status.', 'warning'); return; }
+
+  goToStep(regType === 'competition' ? '2c' : '2p');
+}
+
+// ── Team member section toggling ───────────────────────
+function updateMemberSections() {
+  const val = document.getElementById('totalMembersSelect').value;
+  const m2 = document.getElementById('member2section');
+  const m3 = document.getElementById('member3section');
+  m2.classList.toggle('hidden', val === '' || val === '1');
+  m3.classList.toggle('hidden', val !== '3');
+}
+
+// ── Step 3C validation ─────────────────────────────────
+function nextFromStep3c() {
+  const track = document.querySelector('input[name="track"]:checked');
+  if (!track) { Swal.fire('Track Required', 'Please select a problem track.', 'warning'); return; }
+  const pt = document.getElementById('project_title');
+  if (!pt.value.trim()) { Swal.fire('Required', 'Please enter your project / proposal title.', 'warning'); pt.focus(); return; }
+  const ps = document.getElementById('problem_statement');
+  const psWords = countWords(ps.value);
+  if (psWords < 300 || psWords > 400) {
+    Swal.fire('Word Count Required', `Problem statement must be 300–400 words. Currently: ${psWords} words.`, 'warning');
+    ps.focus(); return;
+  }
+  const sdg = document.querySelectorAll('input[name="sdg_alignment"]:checked');
+  if (!sdg.length) { Swal.fire('SDG Required', 'Please select at least one SDG alignment.', 'warning'); return; }
+  goToStep('4c');
+}
+
+// ── Word counter ───────────────────────────────────────
+function countWords(text) {
+  return text.trim().split(/\s+/).filter(w => w).length;
+}
+function setupWordCounter(textareaId, counterId, min, max) {
+  const ta = document.getElementById(textareaId);
+  const counter = document.getElementById(counterId);
+  if (!ta || !counter) return;
+  ta.addEventListener('input', () => {
+    const words = countWords(ta.value);
+    let cls = '';
+    let label = `${words} words`;
+    if (min && max) {
+      label = `${words} / ${min}–${max} words`;
+      cls = words < min ? 'warn' : words <= max ? 'ok' : 'over';
+    }
+    counter.textContent = label;
+    counter.className = 'word-counter ' + cls;
+  });
+}
+
+// ── File upload handler ────────────────────────────────
+function handleFileSelect(input) {
+  const drop = document.getElementById('fileDrop');
+  const errEl = document.getElementById('fileError');
+  const file = input.files[0];
+  errEl.classList.add('hidden');
+  if (!file) return;
+  if (file.type !== 'application/pdf') {
+    errEl.textContent = 'Only PDF files are accepted.';
+    errEl.classList.remove('hidden');
+    input.value = ''; drop.classList.remove('has-file'); return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    errEl.textContent = 'File size must be under 10 MB.';
+    errEl.classList.remove('hidden');
+    input.value = ''; drop.classList.remove('has-file'); return;
+  }
+  drop.classList.add('has-file');
+  document.getElementById('fileDropText').innerHTML =
+    `<p class="font-medium text-green-700">✓ ${file.name}</p><p class="text-sm text-gray-500">${(file.size/1024/1024).toFixed(2)} MB</p>`;
+}
+
+// ── Form submission ────────────────────────────────────
+document.getElementById('registrationForm').addEventListener('submit', async function(e) {
   e.preventDefault();
+  const submitBtn = regType === 'competition'
+    ? document.getElementById('submitBtnC')
+    : document.getElementById('submitBtnP');
+  if (!submitBtn) return;
 
-  const submitBtn = document.querySelector('button[type="submit"]');
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Submitting...';
+  // Validate abstract for competition
+  if (regType === 'competition') {
+    const fileInput = document.getElementById('abstract_file_input');
+    if (!fileInput.files.length) { alert('Please upload your abstract PDF.'); return; }
+    const txn = document.querySelector('input[name="comp_transaction_id"]');
+    if (!txn.value.trim()) { txn.focus(); return; }
+  }
+
+  const orig = submitBtn.textContent;
+  submitBtn.textContent = 'Submitting…';
   submitBtn.disabled = true;
 
-  const formData = new FormData(this);
-  fetch(this.action, {
-    method: 'POST',
-    body: formData,
-    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || '' }
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        Swal.fire({
-          title: "Registration Complete 🎊",
-          text: "Thanks for signing up! Check your confirmation email (Inbox/Spam).",
-          icon: "success"
-        });
-        this.reset();
-        goToStep(1);
-      } else {
-        Swal.fire("Registration failed!", data.message, "error");
-      }
-    })
-    .catch(err => Swal.fire("Error", err.message, "error"))
-    .finally(() => {
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
+  try {
+    const formData = new FormData(this);
+    const resp = await fetch('/submit-form/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') },
+      body: formData,
     });
+    const data = await resp.json();
+    if (data.success) {
+      Swal.fire({
+        title: 'Registration Complete 🎉',
+        text: 'Thanks for registering! Check your email (Inbox/Spam) for confirmation.',
+        icon: 'success',
+      });
+      this.reset();
+      goToStep(0);
+      regType = '';
+      document.getElementById('reg_type_input').value = '';
+      ['card-participant','card-competition'].forEach(id =>
+        document.getElementById(id).classList.remove('selected'));
+      document.getElementById('step0Next').disabled = true;
+    } else {
+      Swal.fire('Registration Failed', data.message, 'error');
+    }
+  } catch (err) {
+    Swal.fire('Error', err.message, 'error');
+  } finally {
+    submitBtn.textContent = orig;
+    submitBtn.disabled = false;
+  }
 });
 
+// ── Admin publish toggle ───────────────────────────────
 {% if is_staff_view %}
-// Get elements
 const publishToggle = document.getElementById('publishCheckbox');
 const publishText = document.getElementById('publishText');
-const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
 
 if (publishToggle) {
   publishToggle.addEventListener('change', () => {
     if (publishToggle.checked) {
-      // Show Publish Modal
       document.getElementById('publishModal').classList.remove('hidden');
     } else {
-      // Show Unpublish Modal
       document.getElementById('unpublishModal').classList.remove('hidden');
     }
   });
 
-  // --- Publish Modal ---
   document.getElementById('cancelPublish').addEventListener('click', () => {
     document.getElementById('publishModal').classList.add('hidden');
-    publishToggle.checked = false; // revert toggle
+    publishToggle.checked = false;
   });
-
   document.getElementById('confirmPublish').addEventListener('click', () => {
     document.getElementById('publishModal').classList.add('hidden');
-    // Send AJAX request to publish
     fetch('{% url "registration:toggle_publish" %}', {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrfToken
-      }
-    })
-    .then(r => r.json())
-    .then(data => {
+      method: 'POST', headers: { 'X-CSRFToken': csrfToken ? csrfToken.value : '' }
+    }).then(r => r.json()).then(data => {
       publishText.textContent = data.is_published ? 'Form published!' : 'Publish Form?';
       publishText.style.color = data.is_published ? '#009b1f' : '#cf1912';
-      // alert('Publish status: ' + (data.is_published ? 'Published' : 'Unpublished'));
-    })
-    .catch(err => alert('Failed to toggle publish: ' + err.message));
+    });
   });
-
-  // --- Unpublish Modal ---
   document.getElementById('cancelUnpublish').addEventListener('click', () => {
     document.getElementById('unpublishModal').classList.add('hidden');
-    publishToggle.checked = true; // revert toggle
+    publishToggle.checked = true;
   });
-
   document.getElementById('confirmUnpublish').addEventListener('click', () => {
     document.getElementById('unpublishModal').classList.add('hidden');
-    // Send AJAX request to unpublish
     fetch('{% url "registration:toggle_publish" %}', {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrfToken
-      }
-    })
-    .then(r => r.json())
-    .then(data => {
+      method: 'POST', headers: { 'X-CSRFToken': csrfToken ? csrfToken.value : '' }
+    }).then(r => r.json()).then(data => {
       publishText.textContent = data.is_published ? 'Form published!' : 'Publish Form?';
       publishText.style.color = data.is_published ? '#009b1f' : '#cf1912';
-      // alert('Publish status: ' + (data.is_published ? 'Published' : 'Unpublished'));
-    })
-    .catch(err => alert('Failed to toggle publish: ' + err.message));
+    });
   });
 }
 {% endif %}
+
+// ── Init ───────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  setupWordCounter('problem_statement', 'ps_counter', 300, 400);
+  setupWordCounter('proposed_solution', 'sol_counter', null, null);
+  goToStep(0);
+
+  particlesJS('particles-js', {
+    particles: {
+      number: { value: 60, density: { enable: true, value_area: 800 } },
+      color: { value: '#ffffff' },
+      shape: { type: 'circle' },
+      opacity: { value: 0.25, random: true },
+      size: { value: 3, random: true },
+      line_linked: { enable: true, distance: 150, color: '#ffffff', opacity: 0.15, width: 1 },
+      move: { enable: true, speed: 2, direction: 'none', random: false, straight: false, out_mode: 'out' }
+    },
+    interactivity: {
+      detect_on: 'canvas',
+      events: { onhover: { enable: true, mode: 'grab' }, onclick: { enable: false }, resize: true },
+      modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } }
+    },
+    retina_detect: true
+  });
+});
 </script>
-
-
-    <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        particlesJS("particles-js", {
-          particles: {
-            number: { value: 80, density: { enable: true, value_area: 800 } },
-            color: { value: "#ffffff" },
-            shape: {
-              type: "circle",
-              stroke: { width: 0, color: "#000000" },
-              polygon: { nb_sides: 5 },
-              image: { src: "img/github.svg", width: 100, height: 100 },
-            },
-            opacity: {
-              value: 1,
-              random: true,
-              anim: { enable: true, speed: 1, opacity_min: 0, sync: false },
-            },
-            size: {
-              value: 3,
-              random: true,
-              anim: { enable: false, speed: 4, size_min: 0.3, sync: false },
-            },
-            line_linked: {
-              enable: true,
-              distance: 150,
-              color: "#ffffff",
-              opacity: 0.4,
-              width: 1,
-            },
-            move: {
-              enable: true,
-              speed: 1,
-              direction: "none",
-              random: true,
-              straight: false,
-              out_mode: "out",
-              bounce: false,
-              attract: { enable: false, rotateX: 600, rotateY: 600 },
-            },
-          },
-          interactivity: {
-            detect_on: "canvas",
-            events: {
-              onhover: { enable: false, mode: "bubble" },
-              onclick: { enable: false, mode: "repulse" },
-              resize: true,
-            },
-            modes: {
-              grab: { distance: 400, line_linked: { opacity: 1 } },
-              bubble: {
-                distance: 250,
-                size: 0,
-                duration: 2,
-                opacity: 0,
-                speed: 3,
-              },
-              repulse: { distance: 400, duration: 0.4 },
-              push: { particles_nb: 4 },
-              remove: { particles_nb: 2 },
-            },
-          },
-          retina_detect: true,
-        });
-        var count_particles, stats, update;
-        stats = new Stats();
-        stats.setMode(0);
-        stats.domElement.style.position = "absolute";
-        stats.domElement.style.left = "0px";
-        stats.domElement.style.top = "0px";
-        document.body.appendChild(stats.domElement);
-        count_particles = document.querySelector(".js-count-particles");
-        update = function () {
-          stats.begin();
-          stats.end();
-          if (
-            window.pJSDom[0].pJS.particles &&
-            window.pJSDom[0].pJS.particles.array
-          ) {
-            count_particles.innerText =
-              window.pJSDom[0].pJS.particles.array.length;
-          }
-          requestAnimationFrame(update);
-        };
-        requestAnimationFrame(update);
-      });
-    </script>
-    <script>
-      document.querySelectorAll('input[name="is_student"]').forEach((radio) => {
-        radio.addEventListener("change", function () {
-          document.getElementById("is_student_bool").value =
-            this.value === "student" ? "True" : "False";
-        });
-      });
-    </script>
-  </body>
+</body>
 </html>

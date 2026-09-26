@@ -172,16 +172,19 @@ class Core:
         '''Imports all participants from form_participant table to registered_participant table and also generates their unique codes\n
             This is done when participants are confirmed for event.'''
         
+        existing_ids = set(
+            Registered_Participant.objects.values_list('email', flat=True)
+        )
         objects = [
             Registered_Participant(
                 name=participant.name,
                 university=participant.university,
-                contact_no=participant.contact_number,
+                contact_no=participant.phone,
                 email=participant.email,
-                t_shirt_size=participant.tshirt_size,
                 unique_code=Core.generate_unique_code(participant.name, participant.university),
             )
             for participant in Form_Participant.objects.all()
+            if participant.email not in existing_ids
         ]
 
         Registered_Participant.objects.bulk_create(objects)

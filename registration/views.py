@@ -1,31 +1,31 @@
+import os
 import csv
 import pandas as pd
 from io import BytesIO
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+from django.db.models import Count
+from django.db.models.functions import Trim
 
 from access_ctrl.decorators import permission_required
 from access_ctrl.utils import Site_Permissions
 from system_administration.utils import log_exception
 from emails.views import send_registration_email
-from django.db.models import Count
-from django.db.models.functions import Trim
 
 from .models import EventFormStatus, Form_Participant
+
 
 def _get_publish_status() -> bool:
     status = EventFormStatus.objects.order_by('-updated_at').first()
     return bool(status and status.is_published)
 
-def registration_form(request):
-    """Display the registration form for general users. Hidden if not published."""
-    # If staff/superuser hits the user URL, send them to the admin view
 
+def registration_form(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('registration:registration_admin')
-    
     if request.user.is_authenticated:
         if not Site_Permissions.user_has_permission(request.user, 'reg_form_control'):
             return redirect('core:dashboard')
@@ -34,36 +34,31 @@ def registration_form(request):
         else:
             return redirect('core:dashboard')
 
-    registration_count = Form_Participant.objects.count()
-    registration_closed = registration_count >= 10000
     context = {
         'is_staff_view': False,
         'is_published': _get_publish_status(),
-        'registration_closed': registration_closed,
     }
     return render(request, 'form.html', context)
+
 
 @login_required
 @permission_required('reg_form_control')
 def registration_admin(request):
-    """Staff-only admin view to manage and preview the form regardless of publish state."""
-
     registration_count = Form_Participant.objects.count()
-
-    permisions = {
-        'reg_form_control':Site_Permissions.user_has_permission(request.user, 'reg_form_control'),
-        'view_reg_responses_list':Site_Permissions.user_has_permission(request.user, 'view_reg_responses_list'),
-        'view_finance_info':Site_Permissions.user_has_permission(request.user, 'view_finance_info'),
-        'view_qr_dashboard':Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'),
+    permissions = {
+        'reg_form_control': Site_Permissions.user_has_permission(request.user, 'reg_form_control'),
+        'view_reg_responses_list': Site_Permissions.user_has_permission(request.user, 'view_reg_responses_list'),
+        'view_finance_info': Site_Permissions.user_has_permission(request.user, 'view_finance_info'),
+        'view_qr_dashboard': Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'),
     }
-
     context = {
         'is_staff_view': True,
         'is_published': _get_publish_status(),
-        'registration_count':registration_count,
-        'has_perm': permisions
+        'registration_count': registration_count,
+        'has_perm': permissions,
     }
     return render(request, 'form.html', context)
+
 
 def registration_redirect(request):
     if request.user.is_authenticated:
@@ -71,10 +66,10 @@ def registration_redirect(request):
     else:
         return redirect('registration:registration_form')
 
+
 @login_required
 @require_POST
 def toggle_publish(request):
-    """Toggle EventFormStatus.is_published and return current status."""
     status = EventFormStatus.objects.order_by('-updated_at').first()
     if not status:
         status = EventFormStatus.objects.create(is_published=True)
@@ -83,311 +78,176 @@ def toggle_publish(request):
         status.save(update_fields=['is_published'])
     return JsonResponse({'success': True, 'is_published': status.is_published})
 
+
 def submit_form(request):
-    """Handle form submission and save participant data"""
     try:
-        if request.method == 'POST':
-            
-            status = EventFormStatus.objects.order_by('-updated_at').first()
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
-            # if not Site_Permissions.user_has_permission(request.user, 'reg_form_control'):
-            if not Site_Permissions.user_has_permission(request.user, 'reg_form_control') and status.is_published == False:
-                return JsonResponse({
-                'success': False,
-                'message': 'Form has been turned off'
-                })
+        status = EventFormStatus.objects.order_by('-updated_at').first()
+        if not Site_Permissions.user_has_permission(request.user, 'reg_form_control'):
+            if not status or not status.is_published:
+                return JsonResponse({'success': False, 'message': 'Registration is currently closed.'})
 
-            # Get form data
-            #Step 1
-            name = request.POST.get('name')
-            email = request.POST.get('email')
-            contact_number = request.POST.get('contact_number')
-            is_nsu_student = request.POST.get('is_student_bool')
-            nsu_email = None
-            major = ''
-            department = ''
-            if is_nsu_student == 'True':
-                university = 'North South University'
-                university_id = request.POST.get('nsu_id','')
-                nsu_email = request.POST.get('nsu_email', None)
-                department = request.POST.get('department','')
-                current_year = request.POST.get('current_year', '')
-            else:
-                university = request.POST.get('uni_name', '')
-                university_id = request.POST.get('uni_id','')
-                current_year = request.POST.get('other_current_year', '')
-                major = request.POST.get('major', '')
+        registration_type = request.POST.get('registration_type', '').strip()
+        if registration_type not in ('participant', 'competition'):
+            return JsonResponse({'success': False, 'message': 'Invalid registration type.'})
 
-            membership_type = request.POST.get('membership_type')
-            ieee_id = request.POST.get('ieee_id')
+        # Common fields
+        participant = Form_Participant(
+            registration_type=registration_type,
+            name=request.POST.get('name', '').strip(),
+            email=request.POST.get('email', '').strip(),
+            phone=request.POST.get('phone', '').strip(),
+            university=request.POST.get('university', '').strip(),
+            department=request.POST.get('department', '').strip(),
+            student_id=request.POST.get('student_id', '').strip(),
+            study_level=request.POST.get('study_level', '').strip(),
+            ambassador_code=request.POST.get('ambassador_code', '').strip(),
+        )
 
-            # Step 2
-            # Collect questionnaire answers
-            answers = {
-                'question1': request.POST.get('question1', ''),
-                'question2': request.POST.get('question2', ''),
-            }
-            # ambassador_code = request.POST.get('ambassador_code', '')
-            participant_type = request.POST.getlist('participant_type', [])
-            participant_type.append('participant')
+        if registration_type == 'participant':
+            participant.membership_type = request.POST.get('membership_type', '').strip()
+            participant.transaction_id = request.POST.get('transaction_id', '').strip()
 
-            # Step 3
-            registering_for_team = request.POST.get('registering_for_team', False)
-            team_member_count = request.POST.get('team_mem_count', '')
-            mem_name_1 = request.POST.get('mem_name_1', '')
-            mem_uni_name_1 = request.POST.get('mem_uni_name_1', '')
-            mem_uni_id_1 = request.POST.get('mem_uni_id_1', '')
-            mem_name_2 = request.POST.get('mem_name_2', '')
-            mem_uni_name_2 = request.POST.get('mem_uni_name_2', '')
-            mem_uni_id_2 = request.POST.get('mem_uni_id_2', '')
+        elif registration_type == 'competition':
+            participant.ieee_id = request.POST.get('ieee_id', '').strip()
+            participant.team_name = request.POST.get('team_name', '').strip()
+            participant.total_members = request.POST.get('total_members', '').strip()
 
-            # Step 4
-            payment_method = request.POST.get('payment_method')
-            transaction_id = request.POST.get('transaction_id')
-            comments = request.POST.get('comments')
+            participant.mem2_name = request.POST.get('mem2_name', '').strip()
+            participant.mem2_university = request.POST.get('mem2_university', '').strip()
+            participant.mem2_department = request.POST.get('mem2_department', '').strip()
+            participant.mem2_student_id = request.POST.get('mem2_student_id', '').strip()
+            participant.mem2_email = request.POST.get('mem2_email', '').strip()
+            participant.mem2_phone = request.POST.get('mem2_phone', '').strip()
 
-            # Create and save participant
-            participant = Form_Participant.objects.create(
-                name=name,
-                email=email,
-                contact_number=contact_number,
-                membership_type=membership_type,
-                ieee_id=ieee_id,
-                nsu_email=nsu_email,
-                university=university,
-                department=department,
-                university_id=university_id,
-                payment_method=payment_method,
-                transaction_id=transaction_id,
-                answers=answers,
-                current_year=current_year,
-                is_nsu_student=is_nsu_student,
-                # ambassador_code=ambassador_code,
-                participant_type=participant_type,
-                major=major,
-                registering_for_team=registering_for_team,
-                team_member_count=team_member_count,
-                team_mem_1_name=mem_name_1,
-                team_mem_1_university=mem_uni_name_1,
-                team_mem_1_university_id=mem_uni_id_1,
-                team_mem_2_name=mem_name_2,
-                team_mem_2_university=mem_uni_name_2,
-                team_mem_2_university_id=mem_uni_id_2,
-                comments=comments,
-            )
+            participant.mem3_name = request.POST.get('mem3_name', '').strip()
+            participant.mem3_university = request.POST.get('mem3_university', '').strip()
+            participant.mem3_department = request.POST.get('mem3_department', '').strip()
+            participant.mem3_student_id = request.POST.get('mem3_student_id', '').strip()
+            participant.mem3_email = request.POST.get('mem3_email', '').strip()
+            participant.mem3_phone = request.POST.get('mem3_phone', '').strip()
 
-            send_registration_email(request, participant.name, participant.email)
-            
-            # Return success response
-            return JsonResponse({
-                'success': True,
-                'message': 'Registration successful! Your participant ID is: ' + str(participant.id),
-                'participant_id': participant.id
-            })
-                        
-        else:
-            # If not POST request, return error
-            return JsonResponse({
-                'success': False,
-                'message': 'Invalid request method'
-            })
-    except Exception as e:
-        # Return error response
-        log_exception(e, request)
+            participant.track = request.POST.get('track', '').strip()
+            participant.project_title = request.POST.get('project_title', '').strip()
+            participant.problem_statement = request.POST.get('problem_statement', '').strip()
+            participant.proposed_solution = request.POST.get('proposed_solution', '').strip()
+            participant.sdg_alignment = request.POST.getlist('sdg_alignment')
+            participant.comp_transaction_id = request.POST.get('comp_transaction_id', '').strip()
+
+        participant.save()
+
+        # Handle abstract file upload (competition only)
+        if registration_type == 'competition':
+            abstract = request.FILES.get('abstract_file')
+            if abstract:
+                abstracts_dir = os.path.join(settings.PROTECTED_ROOT, 'Abstracts')
+                os.makedirs(abstracts_dir, exist_ok=True)
+                ext = os.path.splitext(abstract.name)[1].lower()
+                safe_name = participant.name.replace(' ', '_')[:40]
+                filename = f"{participant.id}_{safe_name}{ext}"
+                filepath = os.path.join(abstracts_dir, filename)
+                with open(filepath, 'wb+') as dest:
+                    for chunk in abstract.chunks():
+                        dest.write(chunk)
+                participant.abstract_file = filename
+                participant.save(update_fields=['abstract_file'])
+
+        send_registration_email(request, participant.name, participant.email)
+
+        if registration_type == 'competition':
+            if participant.mem2_email:
+                send_registration_email(request, participant.mem2_name or 'Team Member', participant.mem2_email)
+            if participant.mem3_email:
+                send_registration_email(request, participant.mem3_name or 'Team Member', participant.mem3_email)
+
         return JsonResponse({
-            'success': False,
-            'message': 'Registration failed'
+            'success': True,
+            'message': f'Registration successful! Your registration ID is: {participant.id}',
+            'participant_id': participant.id,
         })
-    
+
+    except Exception as e:
+        log_exception(e, request)
+        return JsonResponse({'success': False, 'message': 'Registration failed. Please try again.'})
+
+
 @login_required
 @permission_required('reg_form_control')
 def download_excel(request):
-    participants = Form_Participant.objects.all()
-    
-    # Prepare data for Sheet 1: Basic Information (without questionnaire answers)
-    basic_data = []
-    for participant in participants:
-        basic_row = {
-            'ID': participant.id,
-            'Name': participant.name,
-            'Email': participant.email,
-            'Contact Number': participant.contact_number,
-            'Is NSU Student': 'Yes' if participant.is_nsu_student else 'No',
-            'Membership Type': participant.membership_type,
-            'IEEE ID': participant.ieee_id,
-            'University': participant.university,
-            'University ID': participant.university_id,
-            'Department': participant.department,
-            'Major': participant.major,
-            'Current Year': participant.current_year,
-            'Payment Method': participant.payment_method,
-            'Transaction ID': participant.transaction_id,
-            'Comments': participant.comments,
-            'T-shirt Size': participant.tshirt_size,
-            'Created At': participant.created_at.astimezone().strftime('%Y-%m-%d %H:%M:%S'),
-        }
-        basic_data.append(basic_row)
-    
-    # Prepare data for Sheet 2: Questionnaire Answers
-    questionnaire_data = []
-    for participant in participants:
-        answers = participant.answers or {}
-        questionnaire_row = {
-            'ID': participant.id,
-            'Name': participant.name,
-            'Email': participant.email,
-            'Contact': participant.contact_number,
-            'Q1': answers.get('question1', ''),
-            'Q2': answers.get('question2', ''),
-        }
-        questionnaire_data.append(questionnaire_row)
+    participants = Form_Participant.objects.all().order_by('created_at')
 
-    # Prepare data for Sheet 3: Teams
-    teams_data = []
-    teams_data_count = 1
-    for participant in participants:
-        if 'participant_pstpre_contestant' in participant.participant_type and participant.registering_for_team:
-            # Team header row
-            teams_data.append({
-                'Team': f'Team {teams_data_count}',
-                'Name': '',
-                'University': '',
-                'University ID': ''
+    participant_rows = []
+    competition_rows = []
+
+    for p in participants:
+        if p.registration_type == 'participant':
+            participant_rows.append({
+                'ID': p.id,
+                'Name': p.name,
+                'Email': p.email,
+                'Phone': p.phone,
+                'University': p.university,
+                'Department': p.get_department_display(),
+                'Student ID': p.student_id,
+                'Study Level': p.get_study_level_display(),
+                'Membership': p.get_membership_type_display() if p.membership_type else '',
+                'Transaction ID': p.transaction_id,
+                'Ambassador Code': p.ambassador_code,
+                'Registered At': p.created_at.astimezone().strftime('%Y-%m-%d %H:%M:%S'),
+            })
+        elif p.registration_type == 'competition':
+            competition_rows.append({
+                'ID': p.id,
+                'Team Leader': p.name,
+                'Email': p.email,
+                'Phone': p.phone,
+                'University': p.university,
+                'Department': p.get_department_display(),
+                'Student ID': p.student_id,
+                'Study Level': p.get_study_level_display(),
+                'IEEE ID': p.ieee_id,
+                'Team Name': p.team_name,
+                'Total Members': p.total_members,
+                'Track': p.get_track_display() if p.track else '',
+                'Project Title': p.project_title,
+                'SDG Alignment': ', '.join(p.sdg_alignment) if p.sdg_alignment else '',
+                'Abstract File': p.abstract_file,
+                'Transaction ID': p.comp_transaction_id,
+                'Ambassador Code': p.ambassador_code,
+                'Registered At': p.created_at.astimezone().strftime('%Y-%m-%d %H:%M:%S'),
             })
 
-            # Leader
-            teams_data.append({
-                'Team': '',
-                'Name': participant.name,
-                'University': participant.university,
-                'University ID': participant.university_id
-            })
-
-            # Member 1
-            if participant.team_member_count in ['two', 'three']:
-                teams_data.append({
-                    'Team': '',
-                    'Name': participant.team_mem_1_name,
-                    'University': participant.team_mem_1_university,
-                    'University ID': participant.team_mem_1_university_id
-                })
-
-            # Member 2 (only for 3-member team)
-            if participant.team_member_count == 'three':
-                teams_data.append({
-                    'Team': '',
-                    'Name': participant.team_mem_2_name,
-                    'University': participant.team_mem_2_university,
-                    'University ID': participant.team_mem_2_university_id
-                })
-
-            # Blank row for spacing
-            teams_data.append({
-                'Team': '',
-                'Name': '',
-                'University': '',
-                'University ID': ''
-            })
-            teams_data_count += 1
-
-    # Prepare data for Sheet 4: T-Shirt
-    t_shirt_data = []
-    for participant in participants:
-        t_shirt_row = {
-            'ID': participant.id,
-            'Name': participant.name,
-            'Email': participant.email,
-            'Contact Number': participant.contact_number,
-            'University': participant.university,
-            'T-shirt Size': participant.tshirt_size,
-        }
-        t_shirt_data.append(t_shirt_row)
-    
-    # Create Excel file with two sheets
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Sheet 1: Basic Information
-        if basic_data:
-            df_basic = pd.DataFrame(basic_data)
-            df_basic.to_excel(writer, index=False, sheet_name='Basic Information')
-        else:
-            # Create empty sheet if no data
-            empty_df = pd.DataFrame({'Message': ['No participants registered']})
-            empty_df.to_excel(writer, index=False, sheet_name='Basic Information')
-        
-        # Sheet 2: Questionnaire Answers
-        if questionnaire_data:
-            df_questionnaire = pd.DataFrame(questionnaire_data)
-            df_questionnaire.to_excel(writer, index=False, sheet_name='Questionnaire Answers')
-        else:
-            # Create empty sheet if no data
-            empty_df = pd.DataFrame({'Message': ['No participants registered']})
-            empty_df.to_excel(writer, index=False, sheet_name='Questionnaire Answers')
+        df = pd.DataFrame(participant_rows) if participant_rows else pd.DataFrame({'Message': ['No participants yet']})
+        df.to_excel(writer, index=False, sheet_name='Participants')
 
-        # Sheet 3: Teams
-        if teams_data:
-            df_teams = pd.DataFrame(teams_data)
-            df_teams.to_excel(writer, index=False, sheet_name='Teams')
-        else:
-            # Create empty sheet if no data
-            empty_df = pd.DataFrame({'Message': ['No teams registered']})
-            empty_df.to_excel(writer, index=False, sheet_name='Teams')
+        df2 = pd.DataFrame(competition_rows) if competition_rows else pd.DataFrame({'Message': ['No competition entries yet']})
+        df2.to_excel(writer, index=False, sheet_name='Competition')
 
-        # Sheet 4: T-Shirt
-        if t_shirt_data:
-            df_t_shirt = pd.DataFrame(t_shirt_data)
-            df_t_shirt.to_excel(writer, index=False, sheet_name='T-Shirt')
-        else:
-            # Create empty sheet if no data
-            empty_df = pd.DataFrame({'Message': ['No T-Shirts registered']})
-            empty_df.to_excel(writer, index=False, sheet_name='T-Shirt')
-    
     output.seek(0)
     response = HttpResponse(
         output.getvalue(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = 'attachment; filename="participants_data.xlsx"'
+    response['Content-Disposition'] = 'attachment; filename="ppis_registrations.xlsx"'
     return response
+
 
 @login_required
 @permission_required('view_reg_responses_list')
 def response_table(request):
-
-    ieee_member = 350
-    non_ieee_member = 450
-
     permissions = {
-        'view_finance_info':Site_Permissions.user_has_permission(request.user, 'view_finance_info')
+        'view_finance_info': Site_Permissions.user_has_permission(request.user, 'view_finance_info'),
     }
 
     participants = Form_Participant.objects.all().order_by('created_at')
 
-    # Query grouped stats
-    stats = (
-        Form_Participant.objects
-        .values("membership_type")
-        .annotate(total=Count("id"))
-    )
+    stats = Form_Participant.objects.values('registration_type').annotate(total=Count('id'))
+    summary = {entry['registration_type']: entry['total'] for entry in stats}
 
-    # Build summary dictionary
-    summary = {}
-
-    for entry in stats:
-        membership = entry["membership_type"]
-        summary[membership] = entry.get("total", 0)
-    
-    summary['ieee_member_total'] = summary.get('member', 0) * ieee_member
-    summary['non_ieee_member_total'] = summary.get('non_ieee', 0) * non_ieee_member
-
-    total_amount = (summary['ieee_member_total']
-                    +summary['non_ieee_member_total'])
-    total_amount = f"BDT {total_amount:,}"
-
-    summary['ieee_member_total'] = f"{summary['ieee_member_total']:,}"
-    summary['non_ieee_member_total'] = f"{summary['non_ieee_member_total']:,}"
-
-    
     university_data = (
         Form_Participant.objects
         .exclude(university__isnull=True)
@@ -398,30 +258,18 @@ def response_table(request):
         .order_by('-total')
     )
 
-    # Payment method counts
-    payment_counts = (
-        Form_Participant.objects
-        .values('payment_method')
-        .annotate(total=Count('id'))
-    )
-    # Convert into dict like {"Bkash": 10, "Nagad": 15}
-    payment_summary = {entry['payment_method']: entry['total'] for entry in payment_counts}
-
     context = {
         'participants': participants,
         'registration_stats': summary,
         'university_data': university_data,
-        'payment_summary': payment_summary,
-        'total_amount': total_amount,
-        'has_perm':permissions
+        'has_perm': permissions,
     }
     return render(request, 'response_table.html', context)
+
 
 @login_required
 @permission_required('view_reg_response')
 def view_response(request, id):
-    partipant=Form_Participant.objects.get(id=id)
-    context = {
-        'participant': partipant
-    }
+    participant = Form_Participant.objects.get(id=id)
+    context = {'participant': participant}
     return render(request, 'participant_response.html', context)

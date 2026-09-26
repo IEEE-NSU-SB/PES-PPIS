@@ -5,7 +5,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PowerExpress 2.0 | Dashboard</title>
+    <title>PPIS | Dashboard</title>
     <link rel="icon" href="{% static '/img/pes.png' %}" />
 
     <script src="{% static 'js/html5-qrcode.min.js' %}"></script>
@@ -523,7 +523,7 @@ video{
      <div id="particles-js"></div>
     <!-- Navbar -->
     <div class="navbar">
-      <img src="{% static '/img/PowerExpressLogo.png' %}" alt="logo" />
+      <img src="{% static '/img/PPISBanner.webp' %}" alt="PPIS" />
       <div>
         Current Sessions: {% for session in token_sessions %}{{session.session_name}}{% if not forloop.last %}, {% endif %}{% endfor %}
       </div>
@@ -549,6 +549,13 @@ video{
           <button id="tap-to-scan">Tap to Scan</button>
           {% endif %}
         </div>
+        {% if request.user.is_superuser %}
+        <div class="button-group" style="gap:6px;">
+          <button id="btn-import-participants" style="background:#d7f5bf;border-color:#357a34;">Import Participants</button>
+          <button id="btn-gen-qr" style="background:#fde68a;border-color:#92400e;color:#92400e;">Generate QR Codes</button>
+          <a href="{% url 'admin:core_token_session_changelist' %}" style="background:#e0e7ff;border-color:#3730a3;color:#3730a3;">Manage Sessions</a>
+        </div>
+        {% endif %}
       </div>
       <div>
         <!-- QR Code Reader -->
@@ -1306,6 +1313,65 @@ details_form.addEventListener("submit", (e) => {
       });
     }).catch((err) => console.error("Error:", err));
 });
+
+{% if request.user.is_superuser %}
+// Import Participants button
+document.getElementById('btn-import-participants').addEventListener('click', () => {
+  Swal.fire({
+    title: 'Import Participants?',
+    html: 'This copies all registration form submissions into the QR dashboard.<br>Duplicate emails are skipped automatically.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Import',
+    cancelButtonText: 'Cancel',
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Importing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    fetch("{% url 'core:import_reg_participants' %}", {
+      method: 'GET',
+      headers: { 'X-CSRFToken': '{{csrf_token}}' },
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.message === 'success') {
+        Swal.fire({ title: 'Done!', text: 'Participants imported. Reload the page to see them.', icon: 'success', confirmButtonText: 'Reload' })
+          .then(() => location.reload());
+      } else {
+        Swal.fire('Error', data.message || 'Import failed.', 'error');
+      }
+    })
+    .catch(() => Swal.fire('Error', 'Request failed.', 'error'));
+  });
+});
+
+// Generate QR Codes button
+document.getElementById('btn-gen-qr').addEventListener('click', () => {
+  Swal.fire({
+    title: 'Generate QR Codes?',
+    html: 'This creates QR images for every participant in the dashboard.<br><b>Import participants first</b> if you haven\'t already.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Generate',
+    cancelButtonText: 'Cancel',
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Generating...', text: 'This may take a moment.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    fetch("{% url 'core:gen_qr' %}", {
+      method: 'GET',
+      headers: { 'X-CSRFToken': '{{csrf_token}}' },
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.message === 'success') {
+        Swal.fire('Done!', 'QR codes generated. You can now send them via the details panel.', 'success');
+      } else {
+        Swal.fire('Error', data.message || 'Generation failed.', 'error');
+      }
+    })
+    .catch(() => Swal.fire('Error', 'Request failed.', 'error'));
+  });
+});
+{% endif %}
 
     </script>
     <script>

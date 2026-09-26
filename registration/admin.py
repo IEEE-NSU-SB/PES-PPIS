@@ -9,4 +9,4 @@ class EventFormStatusAdmin(admin.ModelAdmin):
 
 @admin.register(Form_Participant)
 class Form_ParticipantAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'university', 'email', 'membership_type', 'is_nsu_student', 'created_at']
+    list_display = ['id', 'name', 'registration_type', 'university', 'email', 'created_at']

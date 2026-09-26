@@ -7,16 +7,17 @@ from ics import Calendar, Event
 tz = ZoneInfo("Asia/Dhaka")
 
 # Event details
-event_name = "PowerExpress 2.0"
-event_start = datetime(2025, 11, 24, 8, 30, tzinfo=tz)   # 8:30 AM Bangladesh time
-event_end   = datetime(2025, 11, 24, 19, 0, tzinfo=tz)  # 7:00 PM Bangladesh time
+event_name = "PPIS — Power Policy & Innovation Summit"
+event_start = datetime(2026, 10, 23, 8, 30, tzinfo=tz)   # 8:30 AM Bangladesh time
+event_end   = datetime(2026, 10, 31, 19, 0, tzinfo=tz)  # 7:00 PM Bangladesh time
 event_location = "North South University, Dhaka, Bangladesh"
 event_description = (
-    "PowerExpress 2.0 — IEEE NSU PES SBC's flagship event focused on innovation, "
-    "energy, and collaboration across academia and industry."
+    "PPIS (Power Policy & Innovation Summit) — IEEE NSU PES SBC's flagship event bringing together "
+    "students, young professionals, industry leaders, and policy experts to tackle Bangladesh's "
+    "energy challenges through innovation and collaboration."
 )
-event_url = "https://www.facebook.com/"
-uid = "powerexpress-2025@ieeensu.org"
+event_url = "https://www.facebook.com/ieeensupes"
+uid = "ppis-2026@ieeensu.org"
 
 # Create calendar and event
 cal = Calendar()
