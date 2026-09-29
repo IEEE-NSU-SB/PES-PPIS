@@ -1,797 +1,1667 @@
 {% load static %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PPIS | Registration Form</title>
-  <link rel="icon" href="{% static '/img/pes.png' %}" />
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="{% static 'js/particles.min.js' %}"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
-    body { background: transparent; font-family: "Instrument Sans", sans-serif; }
-    canvas { display: block; vertical-align: bottom; }
-    #particles-js {
-      position: fixed; width: 100%; height: 100%;
-      background-color: #479A46; z-index: -1; top: 0; left: 0;
-    }
-    .card-panel {
-      background: #eefbe3;
-      backdrop-filter: blur(7px);
-      border-radius: 6px;
-      box-shadow: 0 2px 8px 0px #00000070;
-    }
-    .input_label { display: block; font-size: 16px; margin-bottom: .3rem; color: #122812; font-weight: 500; }
-    .input {
-      width: 100%; padding: .5rem .75rem;
-      border: 1px solid #aaa; border-radius: 0.375rem;
-      outline: none; background: white;
-      transition: border .2s, box-shadow .2s;
-    }
-    .input:focus { border-color: #74BA2D; box-shadow: 0 0 0 3px #d7f5bf88; }
-    select.input { cursor: pointer; }
-    textarea.input { resize: vertical; min-height: 120px; }
-    .section_heading { text-align: center; font-size: 1.4rem; font-weight: 600; margin-bottom: 20px; color: #122812; }
-    .continue-btn {
-      color: #fff; background: #479A46;
-      padding: .55rem 1.5rem; border-radius: 6px;
-      cursor: pointer; border: none; font-size: 1rem; font-weight: 500;
-      transition: background .2s;
-    }
-    .continue-btn:hover { background: #357a34; }
-    .continue-btn:disabled { background: #aaa; cursor: not-allowed; }
-    .back-btn {
-      color: #479A46; background: transparent;
-      padding: .55rem 1rem; border-radius: 6px;
-      cursor: pointer; border: 1px solid #479A46; font-size: 1rem;
-      transition: all .2s;
-    }
-    .back-btn:hover { background: #d7f5bf; }
-    .admin-btn {
-      color: #122812; border: 1px solid #122812; border-radius: 5px;
-      background: #c4f49d; padding: .3rem .85rem;
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 1rem; transition: all .2s; cursor: pointer;
-    }
-    .admin-btn:hover { background: #479A46; color: #c4f49d; }
-    .response_count {
-      font-size: 1rem; border-bottom: 2px solid #479A46;
-      border-top: 1px solid #479A46; border-left: 6px solid #479A46;
-      border-right: 1px solid #479A46; padding: 4px 12px;
-      border-radius: 14px 4px; background: #e3ffc6; color: #122812;
-    }
-    /* type selector cards */
-    .type-card {
-      border: 2px solid #b8e0b7; border-radius: 10px;
-      padding: 1.5rem; cursor: pointer; transition: all .25s;
-      background: white; text-align: center;
-    }
-    .type-card:hover { border-color: #479A46; box-shadow: 0 4px 12px #479a4630; }
-    .type-card.selected { border-color: #479A46; background: #eaffd8; box-shadow: 0 4px 16px #479a4640; }
-    .type-card .icon { font-size: 2.5rem; margin-bottom: .5rem; }
-    .type-card h3 { font-size: 1.15rem; font-weight: 700; color: #122812; margin-bottom: .25rem; }
-    .type-card p { font-size: .875rem; color: #555; }
-    /* step indicator */
-    .step-bar { display: flex; align-items: center; gap: 0; margin-bottom: 1.5rem; }
-    .step-dot {
-      width: 28px; height: 28px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .8rem; font-weight: 700; flex-shrink: 0;
-      border: 2px solid #b8e0b7; background: #fff; color: #888;
-    }
-    .step-dot.active { border-color: #479A46; background: #479A46; color: #fff; }
-    .step-dot.done { border-color: #479A46; background: #d7f5bf; color: #357a34; }
-    .step-line { flex: 1; height: 2px; background: #b8e0b7; }
-    .step-line.done { background: #479A46; }
-    /* sdg checkboxes */
-    .sdg-label {
-      display: flex; align-items: center; gap: .5rem;
-      padding: .4rem .75rem; border-radius: 6px; cursor: pointer;
-      border: 1px solid #ccc; background: white;
-      transition: all .2s; font-size: .9rem;
-    }
-    .sdg-label input { accent-color: #479A46; width: 16px; height: 16px; }
-    .sdg-label:has(input:checked) { border-color: #479A46; background: #eaffd8; color: #122812; }
-    /* word counter */
-    .word-counter { font-size: .8rem; color: #777; text-align: right; margin-top: 4px; }
-    .word-counter.warn { color: #c57a00; }
-    .word-counter.ok { color: #479A46; font-weight: 600; }
-    .word-counter.over { color: #c0392b; }
-    /* file upload */
-    .file-drop {
-      border: 2px dashed #74BA2D; border-radius: 8px;
-      padding: 2rem; text-align: center; background: white;
-      cursor: pointer; transition: all .2s;
-    }
-    .file-drop:hover { background: #f0fff0; }
-    .file-drop.has-file { border-color: #479A46; background: #eaffd8; }
-    /* member section */
-    .member-block {
-      border: 1px solid #c8e6c5; border-radius: 8px;
-      padding: 1rem; background: #f9fff7; margin-bottom: 1rem;
-    }
-    .member-block h4 { font-weight: 600; color: #357a34; margin-bottom: .75rem; font-size: .95rem; }
-    @media (max-width: 500px) {
-      .admin-btn { font-size: .875rem; }
-      .response_count { margin: 8px auto; }
-    }
-  </style>
-</head>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PPIS | Registration Form</title>
+    <link rel="icon" href="{% static '/img/pes.png' %}" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@5"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{% static 'js/particles.min.js' %}"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap");
+      body {
+        background: transparent;
+        font-family: "Instrument Sans", sans-serif;
+      }
+      canvas {
+        display: block;
+        vertical-align: bottom;
+      }
+      #particles-js {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        background-color: #479a46;
+        z-index: -1;
+        top: 0;
+        left: 0;
+      }
+      .card-panel {
+        background: #eefbe3;
+        backdrop-filter: blur(7px);
+        border-radius: 6px;
+        box-shadow: 0 2px 8px 0px #00000070;
+      }
+      .input_label {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 0.3rem;
+        color: #122812;
+        font-weight: 500;
+      }
+      .input {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #aaa;
+        border-radius: 0.375rem;
+        outline: none;
+        background: white;
+        transition:
+          border 0.2s,
+          box-shadow 0.2s;
+      }
+      .input:focus {
+        border-color: #74ba2d;
+        box-shadow: 0 0 0 3px #d7f5bf88;
+      }
+      select.input {
+        cursor: pointer;
+      }
+      textarea.input {
+        resize: vertical;
+        min-height: 120px;
+      }
+      /* validation error highlight */
+      .input.field-error {
+        border-color: #c0392b !important;
+        box-shadow: 0 0 0 3px #c0392b33 !important;
+      }
+      .field-error-group {
+        outline: 2px solid #c0392b;
+        outline-offset: 4px;
+        border-radius: 6px;
+      }
+      .section_heading {
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: #122812;
+      }
+      .continue-btn {
+        color: #fff;
+        background: #479a46;
+        padding: 0.55rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        border: none;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+      .continue-btn:hover {
+        background: #357a34;
+      }
+      .continue-btn:disabled {
+        background: #aaa;
+        cursor: not-allowed;
+      }
+      .back-btn {
+        color: #479a46;
+        background: transparent;
+        padding: 0.55rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid #479a46;
+        font-size: 1rem;
+        transition: all 0.2s;
+      }
+      .back-btn:hover {
+        background: #d7f5bf;
+      }
+      .admin-btn {
+        color: #122812;
+        border: 1px solid #122812;
+        border-radius: 5px;
+        background: #c4f49d;
+        padding: 0.3rem 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 1rem;
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+      .admin-btn:hover {
+        background: #479a46;
+        color: #c4f49d;
+      }
+      .response_count {
+        font-size: 1rem;
+        border-bottom: 2px solid #479a46;
+        border-top: 1px solid #479a46;
+        border-left: 6px solid #479a46;
+        border-right: 1px solid #479a46;
+        padding: 4px 12px;
+        border-radius: 14px 4px;
+        background: #e3ffc6;
+        color: #122812;
+      }
+      /* type selector cards */
+      .type-card {
+        border: 2px solid #b8e0b7;
+        border-radius: 10px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.25s;
+        background: white;
+        text-align: center;
+      }
+      .type-card:hover {
+        border-color: #479a46;
+        box-shadow: 0 4px 12px #479a4630;
+      }
+      .type-card.selected {
+        border-color: #479a46;
+        background: #eaffd8;
+        box-shadow: 0 4px 16px #479a4640;
+      }
+      .type-card .icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .type-card h3 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #122812;
+        margin-bottom: 0.25rem;
+      }
+      .type-card p {
+        font-size: 0.875rem;
+        color: #555;
+      }
+      /* step indicator */
+      .step-bar {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 1.5rem;
+      }
+      .step-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        border: 2px solid #b8e0b7;
+        background: #fff;
+        color: #888;
+      }
+      .step-dot.active {
+        border-color: #479a46;
+        background: #479a46;
+        color: #fff;
+      }
+      .step-dot.done {
+        border-color: #479a46;
+        background: #d7f5bf;
+        color: #357a34;
+      }
+      .step-line {
+        flex: 1;
+        height: 2px;
+        background: #b8e0b7;
+      }
+      .step-line.done {
+        background: #479a46;
+      }
+      /* sdg checkboxes */
+      .sdg-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        background: white;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+      }
+      .sdg-label input {
+        accent-color: #479a46;
+        width: 16px;
+        height: 16px;
+      }
+      .sdg-label:has(input:checked) {
+        border-color: #479a46;
+        background: #eaffd8;
+        color: #122812;
+      }
+      /* word counter */
+      .word-counter {
+        font-size: 0.8rem;
+        color: #777;
+        text-align: right;
+        margin-top: 4px;
+      }
+      .word-counter.warn {
+        color: #c57a00;
+      }
+      .word-counter.ok {
+        color: #479a46;
+        font-weight: 600;
+      }
+      .word-counter.over {
+        color: #c0392b;
+      }
+      /* file upload */
+      .file-drop {
+        border: 2px dashed #74ba2d;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .file-drop:hover {
+        background: #f0fff0;
+      }
+      .file-drop.has-file {
+        border-color: #479a46;
+        background: #eaffd8;
+      }
+      /* member section */
+      .member-block {
+        border: 1px solid #c8e6c5;
+        border-radius: 8px;
+        padding: 1rem;
+        background: #f9fff7;
+        margin-bottom: 1rem;
+      }
+      .member-block h4 {
+        font-weight: 600;
+        color: #357a34;
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+      }
+      @media (max-width: 500px) {
+        .admin-btn {
+          font-size: 0.875rem;
+        }
+        .response_count {
+          margin: 8px auto;
+        }
+      }
+    </style>
+  </head>
 
-<body class="py-3 min-h-screen">
-  <div id="particles-js"></div>
+  <body class="py-3 min-h-screen">
+    <div id="particles-js"></div>
 
-  <!-- Banner -->
-  <div class="w-11/12 md:w-3/5 mx-auto my-4">
-    <div class="rounded overflow-hidden shadow-[0px_0px_10px_#c4f49d] border border-white">
-      <img src="{% static '/img/PPISBanner.webp' %}" alt="Power Policy & Innovation Summit" class="w-full object-cover" />
+    <!-- Banner -->
+    <div class="w-11/12 md:w-3/5 mx-auto my-4">
+      <div
+        class="rounded overflow-hidden shadow-[0px_0px_10px_#c4f49d] border border-white"
+      >
+        <img
+          src="{% static '/img/PPISBanner.webp' %}"
+          alt="Power Policy & Innovation Summit"
+          class="w-full object-cover"
+        />
+      </div>
     </div>
-  </div>
 
-  {% if has_perm.reg_form_control %}
-  <!-- Admin Controls -->
-  <div class="w-11/12 md:w-3/5 mx-auto mb-3">
-    <div class="card-panel px-6 py-4">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <button id="publishToggle" type="button" class="inline-flex gap-2 items-center">
-            <input id="publishCheckbox" type="checkbox"
-              {% if is_published %}checked{% endif %}
-              class="toggle border-gray-300 bg-gray-400 checked:border-[#74BA2D] checked:bg-[#479A46]" />
-            {% if is_published %}
-            <span id="publishText" class="text-lg font-medium" style="color:#009b1f">Form published!</span>
-            {% else %}
-            <span id="publishText" class="text-lg font-medium" style="color:#cf1912">Publish Form?</span>
-            {% endif %}
-          </button>
+    {% if has_perm.reg_form_control %}
+    <!-- Admin Controls -->
+    <div class="w-11/12 md:w-3/5 mx-auto mb-3">
+      <div class="card-panel px-6 py-4">
+        <div
+          class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+        >
+          <div class="flex items-center gap-3">
+            <button
+              id="publishToggle"
+              type="button"
+              class="inline-flex gap-2 items-center"
+            >
+              <input
+                id="publishCheckbox"
+                type="checkbox"
+                {% if is_published %}checked{% endif %}
+                class="toggle border-gray-300 bg-gray-400 checked:border-[#74BA2D] checked:bg-[#479A46]"
+              />
+              {% if is_published %}
+              <span
+                id="publishText"
+                class="text-lg font-medium"
+                style="color: #009b1f"
+                >Form published!</span
+              >
+              {% else %}
+              <span
+                id="publishText"
+                class="text-lg font-medium"
+                style="color: #cf1912"
+                >Publish Form?</span
+              >
+              {% endif %}
+            </button>
+          </div>
+          <p class="response_count">
+            Responses: <strong>{{registration_count}}</strong>
+          </p>
         </div>
-        <p class="response_count">Responses: <strong>{{registration_count}}</strong></p>
-      </div>
-      <div class="flex flex-wrap gap-2 mt-3">
-        <a href="{% url 'registration:download_excel' %}" class="admin-btn">
-          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>
-          Download Excel
-        </a>
-        {% if has_perm.view_qr_dashboard %}
-        <a href="{% url 'core:dashboard' %}" class="admin-btn">Dashboard</a>
-        {% endif %}
-        {% if has_perm.view_reg_responses_list %}
-        <a href="{% url 'registration:response_table' %}" class="admin-btn">
-          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M17,17H7V15H17V17M17,13H7V11H17V13M17,9H7V7H17V9Z"/></svg>
-          Responses
-        </a>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Main content -->
-  <div class="w-11/12 md:w-3/5 mx-auto mb-10">
-
-    {% if not is_staff_view and not is_published %}
-    <!-- Registration Closed -->
-    <div class="card-panel p-6">
-      <h2 class="text-2xl font-bold text-center mb-4" style="color:#122812">Power Policy &amp; Innovation Summit</h2>
-      <p class="text-justify text-sm leading-relaxed mb-4" style="color:#1a3a1a">
-        The global transition towards sustainable energy systems and smart grid technologies demands advanced tools for system modeling, analysis, and optimization. Hence, shaping the future of Bangladesh's power industry requires leadership, smart planning, and well-planned policies.
-        <br><br>
-        To bridge this gap, the <strong>IEEE NSU Power &amp; Energy Society (PES) Student Branch Chapter</strong>, in collaboration with the IEEE NSU Student Branch, IEEE NSU Robotics and Automation Society (RAS) Student Branch Chapter, IEEE NSU Industry Application Society (IAS) Student Branch Chapter, IEEE NSU Women in Engineering (WIE) Affinity Group, and the Department of Electrical and Computer Engineering (ECE), North South University, is organising <strong>"Power Policy &amp; Innovation Summit"</strong> — an interactive two-day National Flagship event bringing students, young innovators, industry leaders, experienced professionals and policymakers from all over the country together to collaborate, learn, and innovate.
-        <br><br>
-        <strong>Event Name:</strong> Power Policy Innovation &amp; Summit<br>
-        <strong>Event Date:</strong> 23 October and 31 October 2026<br>
-        <strong>Venue:</strong> North South University
-      </p>
-      <div class="bg-yellow-50 border border-yellow-300 rounded p-4 text-center text-yellow-900 mt-4">
-        <p class="font-semibold">Registration is not open yet.</p>
-        <p class="text-sm mt-1">Please check back later or contact us for more information.</p>
-        <p class="text-sm mt-2">For queries, call or WhatsApp: <a href="tel:+8801712902722" class="font-semibold underline text-yellow-800">+880 1712-902722</a></p>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <a href="{% url 'registration:download_excel' %}" class="admin-btn">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path
+                d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
+              />
+            </svg>
+            Download Excel
+          </a>
+          {% if has_perm.view_qr_dashboard %}
+          <a href="{% url 'core:dashboard' %}" class="admin-btn">Dashboard</a>
+          {% endif %} {% if has_perm.view_reg_responses_list %}
+          <a href="{% url 'registration:response_table' %}" class="admin-btn">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path
+                d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M17,17H7V15H17V17M17,13H7V11H17V13M17,9H7V7H17V9Z"
+              />
+            </svg>
+            Responses
+          </a>
+          {% endif %}
+        </div>
       </div>
     </div>
+    {% endif %}
 
-    {% else %}
-    <!-- Registration Form -->
-    <form id="registrationForm" method="post" action="/submit-form/" novalidate>
-      {% csrf_token %}
+    <!-- Main content -->
+    <div class="w-11/12 md:w-3/5 mx-auto mb-10">
+      {% if not is_staff_view and not is_published %}
+      <!-- Registration Closed -->
+      <div class="card-panel p-6">
+        <h2 class="text-2xl font-bold text-center mb-4" style="color: #122812">
+          Power Policy &amp; Innovation Summit
+        </h2>
+        <p
+          class="text-justify text-sm leading-relaxed mb-4"
+          style="color: #1a3a1a"
+        >
+          The global transition towards sustainable energy systems and smart
+          grid technologies demands advanced tools for system modeling,
+          analysis, and optimization. Hence, shaping the future of Bangladesh's
+          power industry requires leadership, smart planning, and well-planned
+          policies.
+          <br /><br />
+          To bridge this gap, the
+          <strong
+            >IEEE NSU Power &amp; Energy Society (PES) Student Branch
+            Chapter</strong
+          >, in collaboration with the IEEE NSU Student Branch, IEEE NSU
+          Robotics and Automation Society (RAS) Student Branch Chapter, IEEE NSU
+          Industry Application Society (IAS) Student Branch Chapter, IEEE NSU
+          Women in Engineering (WIE) Affinity Group, and the Department of
+          Electrical and Computer Engineering (ECE), North South University, is
+          organising <strong>"Power Policy &amp; Innovation Summit"</strong> —
+          an interactive two-day National Flagship event bringing students,
+          young innovators, industry leaders, experienced professionals and
+          policymakers from all over the country together to collaborate, learn,
+          and innovate. <br /><br />
+          <strong>Event Name:</strong> Power Policy Innovation &amp; Summit<br />
+          <strong>Event Date:</strong> 23 October and 31 October 2026<br />
+          <strong>Venue:</strong> North South University
+        </p>
+        <div
+          class="bg-yellow-50 border border-yellow-300 rounded p-4 text-center text-yellow-900 mt-4"
+        >
+          <p class="font-semibold">Registration is not open yet.</p>
+          <p class="text-sm mt-1">
+            Please check back later or contact us for more information.
+          </p>
+          <p class="text-sm mt-2">
+            For queries, call or WhatsApp:
+            <a
+              href="tel:+8801712902722"
+              class="font-semibold underline text-yellow-800"
+              >+880 1712-902722</a
+            >
+          </p>
+        </div>
+      </div>
 
-      <!-- Hidden type field -->
-      <input type="hidden" name="registration_type" id="reg_type_input" value="" />
+      {% else %}
+      <!-- Registration Form -->
+      <form
+        id="registrationForm"
+        method="post"
+        action="/submit-form/"
+        novalidate
+      >
+        {% csrf_token %}
 
-      <!-- ══════════════════════════════════════════
+        <!-- Hidden type field -->
+        <input
+          type="hidden"
+          name="registration_type"
+          id="reg_type_input"
+          value=""
+        />
+
+        <!-- ══════════════════════════════════════════
            STEP 0 — Registration Type Selection
       ══════════════════════════════════════════ -->
-      <div id="step0" class="card-panel p-6">
-        <h2 class="section_heading">Choose Your Registration Type</h2>
-        <p class="text-center text-sm text-gray-600 mb-6">Select the category that applies to you</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="type-card" id="card-participant" onclick="selectType('participant')">
-            <div class="icon">🎓</div>
-            <h3>General Participant / Delegate</h3>
-            <p>Attend keynotes, panel discussions, and expert-led sessions.</p>
-            <p class="mt-2 text-xs font-semibold" style="color:#479A46">IEEE Member: BDT 600 &nbsp;|&nbsp; Non-IEEE: BDT 750</p>
+        <div id="step0" class="card-panel p-6">
+          <h2 class="section_heading">Choose Your Registration Type</h2>
+          <p class="text-center text-sm text-gray-600 mb-6">
+            Select the category that applies to you
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              class="type-card"
+              id="card-participant"
+              onclick="selectType('participant')"
+            >
+              <div class="icon">🎓</div>
+              <h3>General Participant / Delegate</h3>
+              <p>
+                Attend keynotes, panel discussions, and expert-led sessions.
+              </p>
+              <p class="mt-2 text-xs font-semibold" style="color: #479a46">
+                IEEE Member: BDT 600 &nbsp;|&nbsp; Non-IEEE: BDT 750
+              </p>
+            </div>
+            <div
+              class="type-card"
+              id="card-competition"
+              onclick="selectType('competition')"
+            >
+              <div class="icon">🏆</div>
+              <h3>Competition</h3>
+              <p>Enter the PPIS Policy Innovation Challenge with your team.</p>
+              <p class="mt-2 text-xs font-semibold" style="color: #479a46">
+                Team Registration: BDT 2,500
+              </p>
+            </div>
           </div>
-          <div class="type-card" id="card-competition" onclick="selectType('competition')">
-            <div class="icon">🏆</div>
-            <h3>Competition</h3>
-            <p>Enter the PPIS Policy Innovation Challenge with your team.</p>
-            <p class="mt-2 text-xs font-semibold" style="color:#479A46">Team Registration: BDT 2,500</p>
+          <div class="flex justify-end mt-6">
+            <button
+              type="button"
+              id="step0Next"
+              class="continue-btn"
+              onclick="goFromStep0()"
+              disabled
+            >
+              Continue →
+            </button>
           </div>
         </div>
-        <div class="flex justify-end mt-6">
-          <button type="button" id="step0Next" class="continue-btn" onclick="goFromStep0()" disabled>Continue →</button>
-        </div>
-      </div>
 
-      <!-- ══════════════════════════════════════════
-           STEP 1 — Personal Profile
+        <!-- ══════════════════════════════════════════
+           STEP 1 — Team leaders details
       ══════════════════════════════════════════ -->
-      <div id="step1" class="card-panel p-6 hidden">
-        <!-- Step bar -->
-        <div id="stepBar1" class="step-bar mb-6"></div>
-        <h2 class="section_heading">Personal &amp; Professional Profile</h2>
+        <div id="step1" class="card-panel p-6 hidden">
+          <!-- Step bar -->
+          <div id="stepBar1" class="step-bar mb-6"></div>
+          <h2 class="section_heading">Team leaders details</h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-          <div>
-            <label class="input_label">Full Name <span class="text-red-600">*</span></label>
-            <input type="text" name="name" class="input" placeholder="Enter your full name" required />
-          </div>
-          <div>
-            <label class="input_label">Contact Email <span class="text-red-600">*</span></label>
-            <input type="email" name="email" class="input" placeholder="Enter your email address" required />
-          </div>
-          <div>
-            <label class="input_label">WhatsApp / Phone Number <span class="text-red-600">*</span></label>
-            <input type="tel" name="phone" class="input" placeholder="+880 1X XXXX XXXX" required />
-          </div>
-          <div>
-            <label class="input_label">University / Institution / Organization <span class="text-red-600">*</span></label>
-            <input type="text" name="university" class="input" placeholder="Your institution name" required />
-          </div>
-          <div>
-            <label class="input_label">Department / Field of Study <span class="text-red-600">*</span></label>
-            <select name="department" class="input" required>
-              <option value="" disabled selected>Select department</option>
-              <option value="eee">Electrical &amp; Electronic Engineering</option>
-              <option value="mech_civil">Mechanical / Civil Engineering</option>
-              <option value="bba_econ">Business Administration / Economics</option>
-              <option value="env_policy">Environmental Science &amp; Policy</option>
-              <option value="cs">Computer Science</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label class="input_label">Student ID / Designation <span class="text-red-600">*</span></label>
-            <input type="text" name="student_id" class="input" placeholder="Your student ID or job title" required />
-          </div>
-          <div class="md:col-span-2">
-            <label class="input_label">Level of Study / Status <span class="text-red-600">*</span></label>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
-              <label class="sdg-label"><input type="radio" name="study_level" value="undergrad" required /> Undergraduate Student</label>
-              <label class="sdg-label"><input type="radio" name="study_level" value="grad" /> Graduate / Master's Student</label>
-              <label class="sdg-label"><input type="radio" name="study_level" value="fresh_grad" /> Fresh Graduate</label>
-              <label class="sdg-label"><input type="radio" name="study_level" value="faculty" /> Faculty / Academician</label>
-              <label class="sdg-label"><input type="radio" name="study_level" value="industry" /> Industry Professional</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+            <div>
+              <label class="input_label"
+                >Full Name <span class="text-red-600">*</span></label
+              >
+              <input
+                type="text"
+                name="name"
+                class="input"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+            <div>
+              <label class="input_label"
+                >Contact Email <span class="text-red-600">*</span></label
+              >
+              <input
+                type="email"
+                name="email"
+                class="input"
+                placeholder="Enter your email address"
+                required
+              />
+            </div>
+            <div>
+              <label class="input_label"
+                >WhatsApp / Phone Number
+                <span class="text-red-600">*</span></label
+              >
+              <input
+                type="tel"
+                name="phone"
+                class="input"
+                placeholder="+880 1X XXXX XXXX"
+                required
+              />
+            </div>
+            <div>
+              <label class="input_label"
+                >University / Institution / Organization
+                <span class="text-red-600">*</span></label
+              >
+              <input
+                type="text"
+                name="university"
+                class="input"
+                placeholder="Your institution name"
+                required
+              />
+            </div>
+            <div>
+              <label class="input_label"
+                >Department / Field of Study
+                <span class="text-red-600">*</span></label
+              >
+              <select name="department" class="input" required>
+                <option value="" disabled selected>Select department</option>
+                <option value="eee">
+                  Electrical &amp; Electronic Engineering
+                </option>
+                <option value="mech_civil">
+                  Mechanical / Civil Engineering
+                </option>
+                <option value="bba_econ">
+                  Business Administration / Economics
+                </option>
+                <option value="env_policy">
+                  Environmental Science &amp; Policy
+                </option>
+                <option value="cs">Computer Science</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="input_label"
+                >Student ID / Designation
+                <span class="text-red-600">*</span></label
+              >
+              <input
+                type="text"
+                name="student_id"
+                class="input"
+                placeholder="Your student ID or job title"
+                required
+              />
+            </div>
+            <div class="md:col-span-2">
+              <label class="input_label"
+                >Level of Study / Status
+                <span class="text-red-600">*</span></label
+              >
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+                <label class="sdg-label"
+                  ><input
+                    type="radio"
+                    name="study_level"
+                    value="undergrad"
+                    required
+                  />
+                  Undergraduate Student</label
+                >
+                <label class="sdg-label"
+                  ><input type="radio" name="study_level" value="grad" />
+                  Graduate / Master's Student</label
+                >
+                <label class="sdg-label"
+                  ><input type="radio" name="study_level" value="fresh_grad" />
+                  Fresh Graduate</label
+                >
+                <label class="sdg-label"
+                  ><input type="radio" name="study_level" value="faculty" />
+                  Faculty / Academician</label
+                >
+                <label class="sdg-label"
+                  ><input type="radio" name="study_level" value="industry" />
+                  Industry Professional</label
+                >
+              </div>
+            </div>
+
+            <!-- IEEE ID — competition only (optional) -->
+            <div id="ieee_id_field" class="md:col-span-2 hidden">
+              <label class="input_label"
+                >IEEE Membership ID
+                <span class="text-gray-400 text-sm">(Optional)</span></label
+              >
+              <input
+                type="text"
+                name="ieee_id"
+                class="input"
+                placeholder="Your IEEE Membership ID"
+              />
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="input_label"
+                >Campus Ambassador Referral Name / Code
+                <span class="text-gray-400 text-sm">(Optional)</span></label
+              >
+              <input
+                type="text"
+                name="ambassador_code"
+                class="input"
+                placeholder="Enter referral name or code if any"
+              />
             </div>
           </div>
 
-          <!-- IEEE ID — competition only -->
-          <div id="ieee_id_field" class="md:col-span-2 hidden">
-            <label class="input_label">IEEE Membership ID <span class="text-gray-400 text-sm">(Optional)</span></label>
-            <input type="text" name="ieee_id" class="input" placeholder="Your IEEE Membership ID" />
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="input_label">Campus Ambassador Referral Name / Code <span class="text-gray-400 text-sm">(Optional)</span></label>
-            <input type="text" name="ambassador_code" class="input" placeholder="Enter referral name or code if any" />
+          <div class="flex justify-between mt-6">
+            <button type="button" class="back-btn" onclick="goToStep(0)">
+              ← Back
+            </button>
+            <button
+              type="button"
+              class="continue-btn"
+              onclick="nextFromStep1()"
+            >
+              Continue →
+            </button>
           </div>
         </div>
 
-        <div class="flex justify-between mt-6">
-          <button type="button" class="back-btn" onclick="goToStep(0)">← Back</button>
-          <button type="button" class="continue-btn" onclick="nextFromStep1()">Continue →</button>
-        </div>
-      </div>
-
-      <!-- ══════════════════════════════════════════
+        <!-- ══════════════════════════════════════════
            STEP 2P — Participant Payment
       ══════════════════════════════════════════ -->
-      <div id="step2p" class="card-panel p-6 hidden">
-        <div id="stepBar2p" class="step-bar mb-6"></div>
-        <h2 class="section_heading">Payment Details</h2>
+        <div id="step2p" class="card-panel p-6 hidden">
+          <div id="stepBar2p" class="step-bar mb-6"></div>
+          <h2 class="section_heading">Payment Details</h2>
 
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm" style="color:#1a3060">
-          <p class="font-semibold mb-1">Bkash Payment</p>
-          <p>Send to: <strong>01728104471</strong> (Meraz Irteza Rivly — Coordinator, Finance &amp; Corporate Team)</p>
-          <div class="mt-2 flex gap-4 flex-wrap">
-            <span class="font-medium">IEEE Member: <strong>BDT 600</strong></span>
-            <span class="font-medium">Non-IEEE Member: <strong>BDT 750</strong></span>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4">
-          <div>
-            <label class="input_label">IEEE Membership Status <span class="text-red-600">*</span></label>
-            <div class="flex gap-3 mt-1">
-              <label class="sdg-label flex-1 justify-center"><input type="radio" name="membership_type" value="ieee" required /> IEEE Member (BDT 600)</label>
-              <label class="sdg-label flex-1 justify-center"><input type="radio" name="membership_type" value="non_ieee" /> Non-IEEE Member (BDT 750)</label>
+          <div
+            class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm"
+            style="color: #1a3060"
+          >
+            <p class="font-semibold mb-1">Bkash Payment</p>
+            <p>
+              Send to: <strong>01728104471</strong> (Meraz Irteza Rivly —
+              Coordinator, Finance &amp; Corporate Team)
+            </p>
+            <div class="mt-2 flex gap-4 flex-wrap">
+              <span class="font-medium"
+                >IEEE Member: <strong>BDT 600</strong></span
+              >
+              <span class="font-medium"
+                >Non-IEEE Member: <strong>BDT 750</strong></span
+              >
             </div>
           </div>
-          <div>
-            <label class="input_label">Bkash Transaction ID <span class="text-red-600">*</span></label>
-            <input type="text" name="transaction_id" class="input" placeholder="Enter your Bkash transaction ID" required />
+
+          <div class="grid grid-cols-1 gap-4">
+            <div>
+              <label class="input_label"
+                >IEEE Membership Status
+                <span class="text-red-600">*</span></label
+              >
+              <div class="flex gap-3 mt-1">
+                <label class="sdg-label flex-1 justify-center"
+                  ><input
+                    type="radio"
+                    name="membership_type"
+                    value="ieee"
+                    required
+                  />
+                  IEEE Member (BDT 600)</label
+                >
+                <label class="sdg-label flex-1 justify-center"
+                  ><input
+                    type="radio"
+                    name="membership_type"
+                    value="non_ieee"
+                  />
+                  Non-IEEE Member (BDT 750)</label
+                >
+              </div>
+            </div>
+            <div>
+              <label class="input_label"
+                >Bkash Transaction ID <span class="text-red-600">*</span></label
+              >
+              <input
+                type="text"
+                name="transaction_id"
+                class="input"
+                placeholder="Enter your Bkash transaction ID"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="flex justify-between mt-6">
+            <button type="button" class="back-btn" onclick="goToStep(1)">
+              ← Back
+            </button>
+            <button type="submit" id="submitBtnP" class="continue-btn">
+              Submit Registration
+            </button>
           </div>
         </div>
 
-        <div class="flex justify-between mt-6">
-          <button type="button" class="back-btn" onclick="goToStep(1)">← Back</button>
-          <button type="submit" id="submitBtnP" class="continue-btn">Submit Registration</button>
-        </div>
-      </div>
-
-      <!-- ══════════════════════════════════════════
+        <!-- ══════════════════════════════════════════
            STEP 2C — Team Composition
       ══════════════════════════════════════════ -->
-      <div id="step2c" class="card-panel p-6 hidden">
-        <div id="stepBar2c" class="step-bar mb-6"></div>
-        <h2 class="section_heading">Team Composition</h2>
+        <div id="step2c" class="card-panel p-6 hidden">
+          <div id="stepBar2c" class="step-bar mb-6"></div>
+          <h2 class="section_heading">Team Composition</h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 mb-5">
-          <div>
-            <label class="input_label">Team Name <span class="text-red-600">*</span></label>
-            <input type="text" name="team_name" class="input" placeholder="Enter your team name" required />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 mb-5">
+            <div>
+              <label class="input_label"
+                >Team Name <span class="text-red-600">*</span></label
+              >
+              <input
+                type="text"
+                name="team_name"
+                class="input"
+                placeholder="Enter your team name"
+                required
+              />
+            </div>
+            <div>
+              <label class="input_label"
+                >Total Number of Members
+                <span class="text-red-600">*</span></label
+              >
+              <select
+                name="total_members"
+                id="totalMembersSelect"
+                class="input"
+                required
+                onchange="updateMemberSections()"
+              >
+                <option value="" disabled selected>Select</option>
+                <option value="2">2 Members</option>
+                <option value="3">3 Members</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="input_label">Total Number of Members <span class="text-red-600">*</span></label>
-            <select name="total_members" id="totalMembersSelect" class="input" required onchange="updateMemberSections()">
-              <option value="" disabled selected>Select</option>
-              <option value="1">Solo (1 Member)</option>
-              <option value="2">2 Members</option>
-              <option value="3">3 Members</option>
-            </select>
+
+          <!-- Member 2 -->
+          <div id="member2section" class="member-block hidden">
+            <h4>Member 2 Details</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+              <div>
+                <label class="input_label"
+                  >Full Name <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem2_name"
+                  class="input"
+                  placeholder="Member 2 full name"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >University / Institution
+                  <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem2_university"
+                  class="input"
+                  placeholder="Member 2 university"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Department <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem2_department"
+                  class="input"
+                  placeholder="Department or field of study"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Student ID <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem2_student_id"
+                  class="input"
+                  placeholder="Student ID"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Email <span class="text-red-600">*</span></label
+                ><input
+                  type="email"
+                  name="mem2_email"
+                  class="input"
+                  placeholder="Email address"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Phone Number <span class="text-red-600">*</span></label
+                ><input
+                  type="tel"
+                  name="mem2_phone"
+                  class="input"
+                  placeholder="WhatsApp / phone"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Member 3 -->
+          <div id="member3section" class="member-block hidden">
+            <h4>Member 3 Details</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+              <div>
+                <label class="input_label"
+                  >Full Name <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem3_name"
+                  class="input"
+                  placeholder="Member 3 full name"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >University / Institution
+                  <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem3_university"
+                  class="input"
+                  placeholder="Member 3 university"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Department <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem3_department"
+                  class="input"
+                  placeholder="Department or field of study"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Student ID <span class="text-red-600">*</span></label
+                ><input
+                  type="text"
+                  name="mem3_student_id"
+                  class="input"
+                  placeholder="Student ID"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Email <span class="text-red-600">*</span></label
+                ><input
+                  type="email"
+                  name="mem3_email"
+                  class="input"
+                  placeholder="Email address"
+                />
+              </div>
+              <div>
+                <label class="input_label"
+                  >Phone Number <span class="text-red-600">*</span></label
+                ><input
+                  type="tel"
+                  name="mem3_phone"
+                  class="input"
+                  placeholder="WhatsApp / phone"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-between mt-6">
+            <button type="button" class="back-btn" onclick="goToStep(1)">
+              ← Back
+            </button>
+            <button
+              type="button"
+              class="continue-btn"
+              onclick="nextFromStep2c()"
+            >
+              Continue →
+            </button>
           </div>
         </div>
 
-        <!-- Member 2 -->
-        <div id="member2section" class="member-block hidden">
-          <h4>Member 2 Details</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
-            <div><label class="input_label">Full Name</label><input type="text" name="mem2_name" class="input" placeholder="Member 2 full name" /></div>
-            <div><label class="input_label">University / Institution</label><input type="text" name="mem2_university" class="input" placeholder="Member 2 university" /></div>
-            <div><label class="input_label">Department</label><input type="text" name="mem2_department" class="input" placeholder="Department or field of study" /></div>
-            <div><label class="input_label">Student ID</label><input type="text" name="mem2_student_id" class="input" placeholder="Student ID" /></div>
-            <div><label class="input_label">Email</label><input type="email" name="mem2_email" class="input" placeholder="Email address" /></div>
-            <div><label class="input_label">Phone Number</label><input type="tel" name="mem2_phone" class="input" placeholder="WhatsApp / phone" /></div>
-          </div>
-        </div>
-
-        <!-- Member 3 -->
-        <div id="member3section" class="member-block hidden">
-          <h4>Member 3 Details <span class="text-gray-400 font-normal">(Optional)</span></h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
-            <div><label class="input_label">Full Name</label><input type="text" name="mem3_name" class="input" placeholder="Member 3 full name" /></div>
-            <div><label class="input_label">University / Institution</label><input type="text" name="mem3_university" class="input" placeholder="Member 3 university" /></div>
-            <div><label class="input_label">Department</label><input type="text" name="mem3_department" class="input" placeholder="Department or field of study" /></div>
-            <div><label class="input_label">Student ID</label><input type="text" name="mem3_student_id" class="input" placeholder="Student ID" /></div>
-            <div><label class="input_label">Email</label><input type="email" name="mem3_email" class="input" placeholder="Email address" /></div>
-            <div><label class="input_label">Phone Number</label><input type="tel" name="mem3_phone" class="input" placeholder="WhatsApp / phone" /></div>
-          </div>
-        </div>
-
-        <div class="flex justify-between mt-6">
-          <button type="button" class="back-btn" onclick="goToStep(1)">← Back</button>
-          <button type="button" class="continue-btn" onclick="goToStep('3c')">Continue →</button>
-        </div>
-      </div>
-
-      <!-- ══════════════════════════════════════════
+        <!-- ══════════════════════════════════════════
            STEP 3C — Project Track & Innovation
       ══════════════════════════════════════════ -->
-      <div id="step3c" class="card-panel p-6 hidden">
-        <div id="stepBar3c" class="step-bar mb-6"></div>
-        <h2 class="section_heading">Project Track &amp; Innovation Overview</h2>
+        <div id="step3c" class="card-panel p-6 hidden">
+          <div id="stepBar3c" class="step-bar mb-6"></div>
+          <h2 class="section_heading">
+            Project Track &amp; Innovation Overview
+          </h2>
 
-        <div class="grid grid-cols-1 gap-5">
-          <div>
-            <label class="input_label">Selected Problem Track <span class="text-red-600">*</span></label>
-            <div class="grid grid-cols-1 gap-2 mt-1">
-              <label class="sdg-label">
-                <input type="radio" name="track" value="track_a" required />
-                <div><strong>Track A:</strong> Grid Modernization, Smart Grids &amp; Load-Shedding Mitigation</div>
+          <div class="grid grid-cols-1 gap-5">
+            <div>
+              <label class="input_label"
+                >Selected Problem Track
+                <span class="text-red-600">*</span></label
+              >
+              <div class="grid grid-cols-1 gap-2 mt-1">
+                <label class="sdg-label">
+                  <input type="radio" name="track" value="track_a" required />
+                  <div>
+                    <strong>Track A:</strong> Grid Modernization, Smart Grids
+                    &amp; Load-Shedding Mitigation
+                  </div>
+                </label>
+                <label class="sdg-label">
+                  <input type="radio" name="track" value="track_b" />
+                  <div>
+                    <strong>Track B:</strong> Renewable Integration, Energy
+                    Storage &amp; Decarbonization
+                  </div>
+                </label>
+                <label class="sdg-label">
+                  <input type="radio" name="track" value="track_c" />
+                  <div>
+                    <strong>Track C:</strong> Energy Policy, FDI Frameworks
+                    &amp; Market Restructuring
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="input_label"
+                >Project / Proposal Title
+                <span class="text-red-600">*</span></label
+              >
+              <input
+                type="text"
+                name="project_title"
+                id="project_title"
+                class="input"
+                placeholder="Enter your project or proposal title"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="input_label">
+                Problem Statement <span class="text-red-600">*</span>
+                <span class="text-gray-400 text-xs font-normal">
+                  max 300-400 words</span
+                >
               </label>
-              <label class="sdg-label">
-                <input type="radio" name="track" value="track_b" />
-                <div><strong>Track B:</strong> Renewable Integration, Energy Storage &amp; Decarbonization</div>
+
+              <textarea
+                name="problem_statement"
+                id="problem_statement"
+                class="input whitespace-pre-wrap break-words overflow-x-hidden"
+                rows="7"
+                placeholder="Briefly describe the specific energy or policy challenge in Bangladesh your team is addressing..."
+              ></textarea>
+
+              <div class="word-counter" id="ps_counter">0 / max 400 words</div>
+            </div>
+
+            <div>
+              <label class="input_label">
+                Proposed Solution Summary <span class="text-red-600">*</span>
+                <span class="text-gray-400 text-xs font-normal">
+                  max 300-400 words</span
+                >
               </label>
-              <label class="sdg-label">
-                <input type="radio" name="track" value="track_c" />
-                <div><strong>Track C:</strong> Energy Policy, FDI Frameworks &amp; Market Restructuring</div>
-              </label>
+
+              <textarea
+                name="proposed_solution"
+                id="proposed_solution"
+                class="input whitespace-pre-wrap break-words overflow-x-hidden"
+                rows="6"
+                placeholder="Detail your technology-based or policy-driven solution and its implementation feasibility..."
+              ></textarea>
+
+              <div class="word-counter" id="sol_counter">0 / max 400 words</div>
+            </div>
+
+            <div>
+              <label class="input_label"
+                >Targeted SDG Alignment <span class="text-red-600">*</span>
+                <span class="text-gray-400 text-xs font-normal"
+                  >— Select all that apply</span
+                ></label
+              >
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                <label class="sdg-label"
+                  ><input type="checkbox" name="sdg_alignment" value="SDG 7" />
+                  SDG 7: Affordable and Clean Energy</label
+                >
+                <label class="sdg-label"
+                  ><input type="checkbox" name="sdg_alignment" value="SDG 9" />
+                  SDG 9: Industry, Innovation, and Infrastructure</label
+                >
+                <label class="sdg-label"
+                  ><input type="checkbox" name="sdg_alignment" value="SDG 11" />
+                  SDG 11: Sustainable Cities and Communities</label
+                >
+                <label class="sdg-label"
+                  ><input type="checkbox" name="sdg_alignment" value="SDG 13" />
+                  SDG 13: Climate Action</label
+                >
+              </div>
             </div>
           </div>
 
-          <div>
-            <label class="input_label">Project / Proposal Title <span class="text-red-600">*</span></label>
-            <input type="text" name="project_title" id="project_title" class="input" placeholder="Enter your project or proposal title" required />
-          </div>
-
-          <div>
-            <label class="input_label">
-              Problem Statement <span class="text-red-600">*</span>
-              <span class="text-gray-400 text-xs font-normal"> — 300 to 400 words</span>
-            </label>
-            <textarea name="problem_statement" id="problem_statement" class="input" rows="7"
-              placeholder="Briefly describe the specific energy or policy challenge in Bangladesh your team is addressing..."></textarea>
-            <div class="word-counter" id="ps_counter">0 / 300–400 words</div>
-          </div>
-
-          <div>
-            <label class="input_label">
-              Proposed Solution Summary <span class="text-red-600">*</span>
-            </label>
-            <textarea name="proposed_solution" id="proposed_solution" class="input" rows="6"
-              placeholder="Detail your technology-based or policy-driven solution and its implementation feasibility..."></textarea>
-            <div class="word-counter" id="sol_counter">0 words</div>
-          </div>
-
-          <div>
-            <label class="input_label">Targeted SDG Alignment <span class="text-red-600">*</span> <span class="text-gray-400 text-xs font-normal">— Select all that apply</span></label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 7" /> SDG 7: Affordable and Clean Energy</label>
-              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 9" /> SDG 9: Industry, Innovation, and Infrastructure</label>
-              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 11" /> SDG 11: Sustainable Cities and Communities</label>
-              <label class="sdg-label"><input type="checkbox" name="sdg_alignment" value="SDG 13" /> SDG 13: Climate Action</label>
-            </div>
+          <div class="flex justify-between mt-6">
+            <button type="button" class="back-btn" onclick="goToStep('2c')">
+              ← Back
+            </button>
+            <button
+              type="button"
+              class="continue-btn"
+              onclick="nextFromStep3c()"
+            >
+              Continue →
+            </button>
           </div>
         </div>
 
-        <div class="flex justify-between mt-6">
-          <button type="button" class="back-btn" onclick="goToStep('2c')">← Back</button>
-          <button type="button" class="continue-btn" onclick="nextFromStep3c()">Continue →</button>
-        </div>
-      </div>
-
-      <!-- ══════════════════════════════════════════
+        <!-- ══════════════════════════════════════════
            STEP 4C — Abstract Upload + Payment
       ══════════════════════════════════════════ -->
-      <div id="step4c" class="card-panel p-6 hidden">
-        <div id="stepBar4c" class="step-bar mb-6"></div>
-        <h2 class="section_heading">Abstract Upload &amp; Payment</h2>
+        <div id="step4c" class="card-panel p-6 hidden">
+          <div id="stepBar4c" class="step-bar mb-6"></div>
+          <h2 class="section_heading">Abstract Upload &amp; Payment</h2>
 
-        <!-- Abstract upload -->
-        <div class="mb-6">
-          <label class="input_label">Abstract / Concept Paper <span class="text-red-600">*</span>
-            <span class="text-gray-400 text-xs font-normal"> — PDF only, 400–450 words, max 10 MB</span>
-          </label>
-          <div class="file-drop" id="fileDrop" onclick="document.getElementById('abstract_file_input').click()">
-            <div id="fileDropText">
-              <svg class="w-10 h-10 mx-auto mb-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-              </svg>
-              <p class="font-medium text-gray-700">Click to upload your abstract</p>
-              <p class="text-sm text-gray-500 mt-1">PDF format · Max 10 MB</p>
+          <!-- Abstract upload -->
+          <div class="mb-6">
+            <label class="input_label"
+              >Abstract / Concept Paper <span class="text-red-600">*</span>
+              <span class="text-gray-400 text-xs font-normal">
+                — PDF only, 400–450 words, max 10 MB</span
+              >
+            </label>
+
+            <div
+              class="file-drop relative"
+              id="fileDrop"
+              onclick="document.getElementById('abstract_file_input').click()"
+            >
+              <button
+                type="button"
+                id="removeFileBtn"
+                class="hidden absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white hover:bg-red-600 flex items-center justify-center text-lg font-bold z-10"
+                onclick="removeSelectedFile(event)"
+                title="Remove file"
+              >
+                ×
+              </button>
+
+              <div id="fileDropText">
+                <svg
+                  class="w-10 h-10 mx-auto mb-2 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                <p class="font-medium text-gray-700">
+                  Click to upload your abstract
+                </p>
+                <p class="text-sm text-gray-500 mt-1">PDF format · Max 10 MB</p>
+              </div>
+
+              <input
+                type="file"
+                id="abstract_file_input"
+                name="abstract_file"
+                accept=".pdf"
+                class="hidden"
+                onchange="handleFileSelect(this)"
+              />
             </div>
-            <input type="file" id="abstract_file_input" name="abstract_file" accept=".pdf" class="hidden" onchange="handleFileSelect(this)" />
+            <p id="fileError" class="text-red-600 text-sm mt-1 hidden"></p>
           </div>
-          <p id="fileError" class="text-red-600 text-sm mt-1 hidden"></p>
-        </div>
 
-        <!-- Payment -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 text-sm" style="color:#1a3060">
-          <p class="font-semibold mb-1">Bkash Payment</p>
-          <p>Send to: <strong>01728104471</strong> (Meraz Irteza Rivly — Coordinator, Finance &amp; Corporate Team)</p>
-          <p class="mt-1">Team Registration Fee: <strong>BDT 2,500</strong></p>
-        </div>
+          <!-- Payment -->
+          <div
+            class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 text-sm"
+            style="color: #1a3060"
+          >
+            <p class="font-semibold mb-1">Bkash Payment</p>
+            <p>
+              Send to: <strong>01728104471</strong> (Meraz Irteza Rivly —
+              Coordinator, Finance &amp; Corporate Team)
+            </p>
+            <p class="mt-1">
+              Team Registration Fee: <strong>BDT 2,500</strong>
+            </p>
+          </div>
 
-        <div>
-          <label class="input_label">Bkash Transaction ID <span class="text-red-600">*</span></label>
-          <input type="text" name="comp_transaction_id" class="input" placeholder="Enter your Bkash transaction ID" required />
-        </div>
+          <div>
+            <label class="input_label"
+              >Bkash Transaction ID <span class="text-red-600">*</span></label
+            >
+            <input
+              type="text"
+              name="comp_transaction_id"
+              class="input"
+              placeholder="Enter your Bkash transaction ID"
+              required
+            />
+          </div>
 
-        <div class="flex justify-between mt-6">
-          <button type="button" class="back-btn" onclick="goToStep('3c')">← Back</button>
-          <button type="submit" id="submitBtnC" class="continue-btn">Submit Registration</button>
+          <div class="flex justify-between mt-6">
+            <button type="button" class="back-btn" onclick="goToStep('3c')">
+              ← Back
+            </button>
+            <button type="submit" id="submitBtnC" class="continue-btn">
+              Submit Registration
+            </button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if is_staff_view %}
+    <!-- Publish / Unpublish modals -->
+    <div
+      id="publishModal"
+      class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-xl p-6 w-80 shadow-xl">
+        <h3 class="text-lg font-bold mb-2">Publish Registration?</h3>
+        <p class="text-sm text-gray-600 mb-4">
+          This will open the registration form to the public.
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button id="cancelPublish" class="back-btn">Cancel</button>
+          <button id="confirmPublish" class="continue-btn">Publish</button>
         </div>
       </div>
-
-    </form>
+    </div>
+    <div
+      id="unpublishModal"
+      class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-xl p-6 w-80 shadow-xl">
+        <h3 class="text-lg font-bold mb-2">Close Registration?</h3>
+        <p class="text-sm text-gray-600 mb-4">
+          This will hide the registration form from the public.
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button id="cancelUnpublish" class="back-btn">Cancel</button>
+          <button
+            id="confirmUnpublish"
+            class="continue-btn"
+            style="background: #c0392b"
+          >
+            Close Form
+          </button>
+        </div>
+      </div>
+    </div>
     {% endif %}
-  </div>
 
-  {% if is_staff_view %}
-  <!-- Publish / Unpublish modals -->
-  <div id="publishModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-80 shadow-xl">
-      <h3 class="text-lg font-bold mb-2">Publish Registration?</h3>
-      <p class="text-sm text-gray-600 mb-4">This will open the registration form to the public.</p>
-      <div class="flex gap-3 justify-end">
-        <button id="cancelPublish" class="back-btn">Cancel</button>
-        <button id="confirmPublish" class="continue-btn">Publish</button>
-      </div>
-    </div>
-  </div>
-  <div id="unpublishModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-80 shadow-xl">
-      <h3 class="text-lg font-bold mb-2">Close Registration?</h3>
-      <p class="text-sm text-gray-600 mb-4">This will hide the registration form from the public.</p>
-      <div class="flex gap-3 justify-end">
-        <button id="cancelUnpublish" class="back-btn">Cancel</button>
-        <button id="confirmUnpublish" class="continue-btn" style="background:#c0392b">Close Form</button>
-      </div>
-    </div>
-  </div>
-  {% endif %}
+    <script>
+      // ── State ─────────────────────────────────────────────
+      let regType = '';   // 'participant' | 'competition'
+      let currentStep = '0';
 
-<script>
-// ── State ─────────────────────────────────────────────
-let regType = '';   // 'participant' | 'competition'
-let currentStep = '0';
+      // ── Step definitions ──────────────────────────────────
+      const PARTICIPANT_STEPS = ['0','1','2p'];
+      const COMPETITION_STEPS = ['0','1','2c','3c','4c'];
+      const STEP_LABELS = {
+        participant: ['Type','Profile','Payment'],
+        competition: ['Type','Profile','Team','Project','Submit'],
+      };
 
-// ── Step definitions ──────────────────────────────────
-const PARTICIPANT_STEPS = ['0','1','2p'];
-const COMPETITION_STEPS = ['0','1','2c','3c','4c'];
-const STEP_LABELS = {
-  participant: ['Type','Profile','Payment'],
-  competition: ['Type','Profile','Team','Project','Submit'],
-};
+      function getSteps() { return regType === 'competition' ? COMPETITION_STEPS : PARTICIPANT_STEPS; }
 
-function getSteps() { return regType === 'competition' ? COMPETITION_STEPS : PARTICIPANT_STEPS; }
+      // ── Step bar renderer ─────────────────────────────────
+      function renderStepBar(barId) {
+        const bar = document.getElementById(barId);
+        if (!bar) return;
+        const steps = getSteps();
+        const labels = STEP_LABELS[regType] || [];
+        const idx = steps.indexOf(currentStep);
+        let html = '';
+        steps.forEach((s, i) => {
+          const state = i < idx ? 'done' : i === idx ? 'active' : '';
+          html += `<div class="step-dot ${state}" title="${labels[i]||''}">${i < idx ? '✓' : i+1}</div>`;
+          if (i < steps.length - 1) html += `<div class="step-line ${i < idx ? 'done' : ''}"></div>`;
+        });
+        bar.innerHTML = html;
+      }
 
-// ── Step bar renderer ─────────────────────────────────
-function renderStepBar(barId) {
-  const bar = document.getElementById(barId);
-  if (!bar) return;
-  const steps = getSteps();
-  const labels = STEP_LABELS[regType] || [];
-  const idx = steps.indexOf(currentStep);
-  let html = '';
-  steps.forEach((s, i) => {
-    const state = i < idx ? 'done' : i === idx ? 'active' : '';
-    html += `<div class="step-dot ${state}" title="${labels[i]||''}">${i < idx ? '✓' : i+1}</div>`;
-    if (i < steps.length - 1) html += `<div class="step-line ${i < idx ? 'done' : ''}"></div>`;
-  });
-  bar.innerHTML = html;
-}
+      // ── Show/hide step ─────────────────────────────────────
+      const ALL_STEPS = ['step0','step1','step2p','step2c','step3c','step4c'];
+      function goToStep(step) {
+        currentStep = String(step);
+        ALL_STEPS.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('hidden');
+        });
+        const target = document.getElementById('step' + currentStep);
+        if (target) {
+          target.classList.remove('hidden');
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        // Render step bars
+        ['stepBar1','stepBar2p','stepBar2c','stepBar3c','stepBar4c'].forEach(id => renderStepBar(id));
+      }
 
-// ── Show/hide step ─────────────────────────────────────
-const ALL_STEPS = ['step0','step1','step2p','step2c','step3c','step4c'];
-function goToStep(step) {
-  currentStep = String(step);
-  ALL_STEPS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
-  });
-  const target = document.getElementById('step' + currentStep);
-  if (target) {
-    target.classList.remove('hidden');
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  // Render step bars
-  ['stepBar1','stepBar2p','stepBar2c','stepBar3c','stepBar4c'].forEach(id => renderStepBar(id));
-}
+      // ── Type selection ─────────────────────────────────────
+      function selectType(type) {
+        regType = type;
+        document.getElementById('reg_type_input').value = type;
+        document.getElementById('card-participant').classList.toggle('selected', type === 'participant');
+        document.getElementById('card-competition').classList.toggle('selected', type === 'competition');
+        document.getElementById('step0Next').disabled = false;
+        // Show/hide IEEE ID field
+        const ieeeField = document.getElementById('ieee_id_field');
+        if (ieeeField) ieeeField.classList.toggle('hidden', type !== 'competition');
+      }
 
-// ── Type selection ─────────────────────────────────────
-function selectType(type) {
-  regType = type;
-  document.getElementById('reg_type_input').value = type;
-  document.getElementById('card-participant').classList.toggle('selected', type === 'participant');
-  document.getElementById('card-competition').classList.toggle('selected', type === 'competition');
-  document.getElementById('step0Next').disabled = false;
-  // Show/hide IEEE ID field
-  const ieeeField = document.getElementById('ieee_id_field');
-  if (ieeeField) ieeeField.classList.toggle('hidden', type !== 'competition');
-}
+      // ── Team member section toggling ───────────────────────
+      function updateMemberSections() {
+        const val = document.getElementById('totalMembersSelect').value;
+        const m2 = document.getElementById('member2section');
+        const m3 = document.getElementById('member3section');
+        m2.classList.toggle('hidden', val === '' || val === '1');
+        m3.classList.toggle('hidden', val !== '3');
+      }
 
-function goFromStep0() {
-  if (!regType) return;
-  goToStep(1);
-}
+      // ── Word counter ───────────────────────────────────────
+      function countWords(text) {
+        return text.trim().split(/\s+/).filter(w => w).length;
+      }
+      function setupWordCounter(textareaId, counterId, min, max) {
+        const ta = document.getElementById(textareaId);
+        const counter = document.getElementById(counterId);
+        if (!ta || !counter) return;
+        ta.addEventListener('input', () => {
+          const words = countWords(ta.value);
+          let cls = '';
+          let label = `${words} words`;
+          if (max) {
+            label = `${words} / max ${max} words`;
+            cls = words > max ? 'over' : 'ok';
+          }
+          counter.textContent = label;
+          counter.className = 'word-counter ' + cls;
+        });
+      }
 
-// ── Step 1 → next ──────────────────────────────────────
-function nextFromStep1() {
-  // Basic validation
-  const required = document.querySelectorAll('#step1 [required]');
-  for (const el of required) {
-    if (!el.value.trim() && el.type !== 'radio') { el.focus(); return; }
-  }
-  // Check radio for study_level
-  const studyLevel = document.querySelector('input[name="study_level"]:checked');
-  if (!studyLevel) { Swal.fire('Required', 'Please select your level of study / status.', 'warning'); return; }
+      // ══════════════════════════════════════════════════════
+      //  VALIDATION
+      // ══════════════════════════════════════════════════════
+      const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const MAX_WORDS = 400; // problem statement & proposed solution
 
-  goToStep(regType === 'competition' ? '2c' : '2p');
-}
+      // Required fields per step. Optional fields (ieee_id, ambassador_code)
+      // are intentionally NOT listed here.
+      function getStepFields(step) {
+        switch (String(step)) {
+          case '1': // Team leader details
+            return [
+              { name: 'name', label: 'Full Name' },
+              { name: 'email', label: 'Contact Email', type: 'email' },
+              { name: 'phone', label: 'WhatsApp / Phone Number', type: 'phone' },
+              { name: 'university', label: 'University / Institution / Organization' },
+              { name: 'department', label: 'Department / Field of Study' },
+              { name: 'student_id', label: 'Student ID / Designation' },
+              { name: 'study_level', label: 'Level of Study / Status' },
+            ];
 
-// ── Team member section toggling ───────────────────────
-function updateMemberSections() {
-  const val = document.getElementById('totalMembersSelect').value;
-  const m2 = document.getElementById('member2section');
-  const m3 = document.getElementById('member3section');
-  m2.classList.toggle('hidden', val === '' || val === '1');
-  m3.classList.toggle('hidden', val !== '3');
-}
+          case '2c': { // Team composition
+            const total = document.getElementById('totalMembersSelect').value;
+            const fields = [
+              { name: 'team_name', label: 'Team Name' },
+              { name: 'total_members', label: 'Total Number of Members' },
+            ];
+            const addMember = (n) => {
+              [
+                ['name', 'Full Name'],
+                ['university', 'University / Institution'],
+                ['department', 'Department'],
+                ['student_id', 'Student ID'],
+                ['email', 'Email', 'email'],
+                ['phone', 'Phone Number', 'phone'],
+              ].forEach(([key, label, type]) =>
+                fields.push({ name: `mem${n}_${key}`, label: `Member ${n} – ${label}`, type })
+              );
+            };
+            if (total === '2' || total === '3') addMember(2);
+            if (total === '3') addMember(3);
+            return fields;
+          }
 
-// ── Step 3C validation ─────────────────────────────────
-function nextFromStep3c() {
-  const track = document.querySelector('input[name="track"]:checked');
-  if (!track) { Swal.fire('Track Required', 'Please select a problem track.', 'warning'); return; }
-  const pt = document.getElementById('project_title');
-  if (!pt.value.trim()) { Swal.fire('Required', 'Please enter your project / proposal title.', 'warning'); pt.focus(); return; }
-  const ps = document.getElementById('problem_statement');
-  const psWords = countWords(ps.value);
-  if (psWords < 300 || psWords > 400) {
-    Swal.fire('Word Count Required', `Problem statement must be 300–400 words. Currently: ${psWords} words.`, 'warning');
-    ps.focus(); return;
-  }
-  const sdg = document.querySelectorAll('input[name="sdg_alignment"]:checked');
-  if (!sdg.length) { Swal.fire('SDG Required', 'Please select at least one SDG alignment.', 'warning'); return; }
-  goToStep('4c');
-}
+          case '3c': // Project track & innovation
+            return [
+              { name: 'track', label: 'Selected Problem Track' },
+              { name: 'project_title', label: 'Project / Proposal Title' },
+              { name: 'problem_statement', label: 'Problem Statement', maxWords: MAX_WORDS },
+              { name: 'proposed_solution', label: 'Proposed Solution Summary', maxWords: MAX_WORDS },
+              { name: 'sdg_alignment', label: 'Targeted SDG Alignment' },
+            ];
 
-// ── Word counter ───────────────────────────────────────
-function countWords(text) {
-  return text.trim().split(/\s+/).filter(w => w).length;
-}
-function setupWordCounter(textareaId, counterId, min, max) {
-  const ta = document.getElementById(textareaId);
-  const counter = document.getElementById(counterId);
-  if (!ta || !counter) return;
-  ta.addEventListener('input', () => {
-    const words = countWords(ta.value);
-    let cls = '';
-    let label = `${words} words`;
-    if (min && max) {
-      label = `${words} / ${min}–${max} words`;
-      cls = words < min ? 'warn' : words <= max ? 'ok' : 'over';
-    }
-    counter.textContent = label;
-    counter.className = 'word-counter ' + cls;
-  });
-}
+          case '4c': // Abstract + payment
+            return [
+              { name: 'abstract_file', label: 'Abstract / Concept Paper (PDF)' },
+              { name: 'comp_transaction_id', label: 'Bkash Transaction ID' },
+            ];
 
-// ── File upload handler ────────────────────────────────
-function handleFileSelect(input) {
-  const drop = document.getElementById('fileDrop');
-  const errEl = document.getElementById('fileError');
-  const file = input.files[0];
-  errEl.classList.add('hidden');
-  if (!file) return;
-  if (file.type !== 'application/pdf') {
-    errEl.textContent = 'Only PDF files are accepted.';
-    errEl.classList.remove('hidden');
-    input.value = ''; drop.classList.remove('has-file'); return;
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    errEl.textContent = 'File size must be under 10 MB.';
-    errEl.classList.remove('hidden');
-    input.value = ''; drop.classList.remove('has-file'); return;
-  }
-  drop.classList.add('has-file');
-  document.getElementById('fileDropText').innerHTML =
-    `<p class="font-medium text-green-700">✓ ${file.name}</p><p class="text-sm text-gray-500">${(file.size/1024/1024).toFixed(2)} MB</p>`;
-}
+          case '2p': // Participant payment
+            return [
+              { name: 'membership_type', label: 'IEEE Membership Status' },
+              { name: 'transaction_id', label: 'Bkash Transaction ID' },
+            ];
 
-// ── Form submission ────────────────────────────────────
-document.getElementById('registrationForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const submitBtn = regType === 'competition'
-    ? document.getElementById('submitBtnC')
-    : document.getElementById('submitBtnP');
-  if (!submitBtn) return;
+          default:
+            return [];
+        }
+      }
 
-  // Validate abstract for competition
-  if (regType === 'competition') {
-    const fileInput = document.getElementById('abstract_file_input');
-    if (!fileInput.files.length) { alert('Please upload your abstract PDF.'); return; }
-    const txn = document.querySelector('input[name="comp_transaction_id"]');
-    if (!txn.value.trim()) { txn.focus(); return; }
-  }
+      // Collect errors for a step without touching the UI
+      function collectErrors(step) {
+        const stepEl = document.getElementById('step' + step);
+        const errors = [];
+        if (!stepEl) return errors;
 
-  const orig = submitBtn.textContent;
-  submitBtn.textContent = 'Submitting…';
-  submitBtn.disabled = true;
+        for (const f of getStepFields(step)) {
+          const els = stepEl.querySelectorAll(`[name="${f.name}"]`);
+          if (!els.length) continue;
+          const first = els[0];
+          let msg = null;
+          let target = first;
+          let groupStyle = false;
 
-  try {
-    const formData = new FormData(this);
-    const resp = await fetch('/submit-form/', {
-      method: 'POST',
-      headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') },
-      body: formData,
-    });
-    const data = await resp.json();
-    if (data.success) {
-      Swal.fire({
-        title: 'Registration Complete 🎉',
-        text: 'Thanks for registering! Check your email (Inbox/Spam) for confirmation.',
-        icon: 'success',
+          if (first.type === 'radio' || first.type === 'checkbox') {
+            groupStyle = true;
+            target = first.closest('.grid, .flex') || first.parentElement;
+            if (![...els].some(e => e.checked)) msg = `${f.label}: please select an option`;
+          } else if (first.type === 'file') {
+            groupStyle = true;
+            target = document.getElementById('fileDrop');
+            if (!first.files.length) msg = `${f.label}: please upload a PDF file`;
+          } else {
+            const v = first.value.trim();
+            if (!v) {
+              msg = `${f.label} is required`;
+            } else if (f.type === 'email' && !EMAIL_RE.test(v)) {
+              msg = `${f.label}: enter a valid email address`;
+            } else if (f.type === 'phone' && v.replace(/\D/g, '').length < 10) {
+              msg = `${f.label}: enter a valid phone number`;
+            } else if (f.maxWords && countWords(v) > f.maxWords) {
+              msg = `${f.label} must not exceed ${f.maxWords} words (currently ${countWords(v)})`;
+            }
+          }
+
+          if (msg) errors.push({ msg, target, groupStyle });
+        }
+        return errors;
+      }
+
+      // Validate a step, highlight fields and show popup
+      function validateStep(step) {
+        const stepEl = document.getElementById('step' + step);
+        if (!stepEl) return true;
+
+        stepEl.querySelectorAll('.field-error').forEach(e => e.classList.remove('field-error'));
+        stepEl.querySelectorAll('.field-error-group').forEach(e => e.classList.remove('field-error-group'));
+
+        const errors = collectErrors(step);
+        if (!errors.length) return true;
+
+        errors.forEach(e => e.target.classList.add(e.groupStyle ? 'field-error-group' : 'field-error'));
+        const firstTarget = errors[0].target;
+
+        Swal.fire({
+          icon: 'warning',
+          title: 'Please complete the required fields',
+          html:
+            '<ul style="text-align:left;margin:0;padding-left:1.2rem;list-style:disc;">' +
+            errors.map(e => `<li>${e.msg}</li>`).join('') +
+            '</ul>',
+          confirmButtonColor: '#479a46',
+        }).then(() => {
+          if (firstTarget) {
+            firstTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (typeof firstTarget.focus === 'function' && firstTarget.tagName !== 'DIV') firstTarget.focus();
+          }
+        });
+        return false;
+      }
+
+      // Clear red highlight as soon as the user fixes a field
+      (function () {
+        const form = document.getElementById('registrationForm');
+        if (!form) return;
+        form.addEventListener('input', e => e.target.classList.remove('field-error'));
+        form.addEventListener('change', e => {
+          e.target.classList.remove('field-error');
+          const grp = e.target.closest('.field-error-group');
+          if (grp) grp.classList.remove('field-error-group');
+          if (e.target.type === 'file') {
+            const drop = document.getElementById('fileDrop');
+            if (drop) drop.classList.remove('field-error-group');
+          }
+        });
+      })();
+
+      // ── Step navigation ───────────────────────────────────
+      function goFromStep0() {
+        if (!regType) {
+          Swal.fire({ icon: 'warning', title: 'Required', text: 'Please choose a registration type.', confirmButtonColor: '#479a46' });
+          return;
+        }
+        goToStep(1);
+      }
+      function nextFromStep1()  { if (validateStep('1'))  goToStep(regType === 'competition' ? '2c' : '2p'); }
+      function nextFromStep2c() { if (validateStep('2c')) goToStep('3c'); }
+      function nextFromStep3c() { if (validateStep('3c')) goToStep('4c'); }
+
+      // ── File upload handler ────────────────────────────────
+      function handleFileSelect(input) {
+        const drop = document.getElementById('fileDrop');
+        const errEl = document.getElementById('fileError');
+        const removeBtn = document.getElementById('removeFileBtn');
+        const file = input.files[0];
+        errEl.classList.add('hidden');
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+          errEl.textContent = 'Only PDF files are accepted.';
+          errEl.classList.remove('hidden');
+          input.value = ''; drop.classList.remove('has-file'); removeBtn.classList.add('hidden');
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          errEl.textContent = 'File size must be under 10 MB.';
+          errEl.classList.remove('hidden');
+          input.value = ''; drop.classList.remove('has-file'); removeBtn.classList.add('hidden');
+          return;
+        }
+
+        drop.classList.add('has-file');
+        document.getElementById('fileDropText').innerHTML =
+          `<p class="font-medium text-green-700">✓ ${file.name}</p><p class="text-sm text-gray-500">${(file.size/1024/1024).toFixed(2)} MB</p>`;
+        removeBtn.classList.remove('hidden');
+      }
+
+      function resetFileUI() {
+        const input = document.getElementById('abstract_file_input');
+        const drop = document.getElementById('fileDrop');
+        const removeBtn = document.getElementById('removeFileBtn');
+        const errEl = document.getElementById('fileError');
+
+        input.value = '';
+        drop.classList.remove('has-file');
+        removeBtn.classList.add('hidden');
+        errEl.classList.add('hidden');
+
+        document.getElementById('fileDropText').innerHTML = `
+          <svg class="w-10 h-10 mx-auto mb-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p class="font-medium text-gray-700">Click to upload your abstract</p>
+          <p class="text-sm text-gray-500 mt-1">PDF format · Max 10 MB</p>
+        `;
+      }
+
+      function removeSelectedFile(event) {
+        event.stopPropagation();
+        resetFileUI();
+      }
+
+      // ── Form submission ────────────────────────────────────
+      document.getElementById('registrationForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!regType) {
+          goToStep(0);
+          Swal.fire({ icon: 'warning', title: 'Required', text: 'Please choose a registration type.', confirmButtonColor: '#479a46' });
+          return;
+        }
+
+        // Re-validate every step of the chosen flow (protects against
+        // skipping steps, e.g. pressing Enter in a text field).
+        const flow = regType === 'competition' ? ['1', '2c', '3c', '4c'] : ['1', '2p'];
+        for (const s of flow) {
+          if (collectErrors(s).length) {
+            goToStep(s);
+            validateStep(s);
+            return;
+          }
+        }
+
+        const submitBtn = regType === 'competition'
+          ? document.getElementById('submitBtnC')
+          : document.getElementById('submitBtnP');
+        if (!submitBtn) return;
+
+        const orig = submitBtn.textContent;
+        submitBtn.textContent = 'Submitting…';
+        submitBtn.disabled = true;
+
+        try {
+          const formData = new FormData(this);
+          const resp = await fetch('/submit-form/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') },
+            body: formData,
+          });
+          const data = await resp.json();
+          if (data.success) {
+            Swal.fire({
+              title: 'Registration Complete 🎉',
+              text: 'Thanks for registering! Check your email (Inbox/Spam) for confirmation.',
+              icon: 'success',
+            });
+            this.reset();
+            resetFileUI();
+            updateMemberSections();
+            goToStep(0);
+            regType = '';
+            document.getElementById('reg_type_input').value = '';
+            ['card-participant','card-competition'].forEach(id =>
+              document.getElementById(id).classList.remove('selected'));
+            document.getElementById('step0Next').disabled = true;
+            const ieeeField = document.getElementById('ieee_id_field');
+            if (ieeeField) ieeeField.classList.add('hidden');
+          } else {
+            Swal.fire('Registration Failed', data.message, 'error');
+          }
+        } catch (err) {
+          Swal.fire('Error', err.message, 'error');
+        } finally {
+          submitBtn.textContent = orig;
+          submitBtn.disabled = false;
+        }
       });
-      this.reset();
-      goToStep(0);
-      regType = '';
-      document.getElementById('reg_type_input').value = '';
-      ['card-participant','card-competition'].forEach(id =>
-        document.getElementById(id).classList.remove('selected'));
-      document.getElementById('step0Next').disabled = true;
-    } else {
-      Swal.fire('Registration Failed', data.message, 'error');
-    }
-  } catch (err) {
-    Swal.fire('Error', err.message, 'error');
-  } finally {
-    submitBtn.textContent = orig;
-    submitBtn.disabled = false;
-  }
-});
 
-// ── Admin publish toggle ───────────────────────────────
-{% if is_staff_view %}
-const publishToggle = document.getElementById('publishCheckbox');
-const publishText = document.getElementById('publishText');
-const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+      // ── Admin publish toggle ───────────────────────────────
+      {% if is_staff_view %}
+      const publishToggle = document.getElementById('publishCheckbox');
+      const publishText = document.getElementById('publishText');
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
 
-if (publishToggle) {
-  publishToggle.addEventListener('change', () => {
-    if (publishToggle.checked) {
-      document.getElementById('publishModal').classList.remove('hidden');
-    } else {
-      document.getElementById('unpublishModal').classList.remove('hidden');
-    }
-  });
+      if (publishToggle) {
+        publishToggle.addEventListener('change', () => {
+          if (publishToggle.checked) {
+            document.getElementById('publishModal').classList.remove('hidden');
+          } else {
+            document.getElementById('unpublishModal').classList.remove('hidden');
+          }
+        });
 
-  document.getElementById('cancelPublish').addEventListener('click', () => {
-    document.getElementById('publishModal').classList.add('hidden');
-    publishToggle.checked = false;
-  });
-  document.getElementById('confirmPublish').addEventListener('click', () => {
-    document.getElementById('publishModal').classList.add('hidden');
-    fetch('{% url "registration:toggle_publish" %}', {
-      method: 'POST', headers: { 'X-CSRFToken': csrfToken ? csrfToken.value : '' }
-    }).then(r => r.json()).then(data => {
-      publishText.textContent = data.is_published ? 'Form published!' : 'Publish Form?';
-      publishText.style.color = data.is_published ? '#009b1f' : '#cf1912';
-    });
-  });
-  document.getElementById('cancelUnpublish').addEventListener('click', () => {
-    document.getElementById('unpublishModal').classList.add('hidden');
-    publishToggle.checked = true;
-  });
-  document.getElementById('confirmUnpublish').addEventListener('click', () => {
-    document.getElementById('unpublishModal').classList.add('hidden');
-    fetch('{% url "registration:toggle_publish" %}', {
-      method: 'POST', headers: { 'X-CSRFToken': csrfToken ? csrfToken.value : '' }
-    }).then(r => r.json()).then(data => {
-      publishText.textContent = data.is_published ? 'Form published!' : 'Publish Form?';
-      publishText.style.color = data.is_published ? '#009b1f' : '#cf1912';
-    });
-  });
-}
-{% endif %}
+        document.getElementById('cancelPublish').addEventListener('click', () => {
+          document.getElementById('publishModal').classList.add('hidden');
+          publishToggle.checked = false;
+        });
+        document.getElementById('confirmPublish').addEventListener('click', () => {
+          document.getElementById('publishModal').classList.add('hidden');
+          fetch('{% url "registration:toggle_publish" %}', {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken ? csrfToken.value : '' }
+          }).then(r => r.json()).then(data => {
+            publishText.textContent = data.is_published ? 'Form published!' : 'Publish Form?';
+            publishText.style.color = data.is_published ? '#009b1f' : '#cf1912';
+          });
+        });
+        document.getElementById('cancelUnpublish').addEventListener('click', () => {
+          document.getElementById('unpublishModal').classList.add('hidden');
+          publishToggle.checked = true;
+        });
+        document.getElementById('confirmUnpublish').addEventListener('click', () => {
+          document.getElementById('unpublishModal').classList.add('hidden');
+          fetch('{% url "registration:toggle_publish" %}', {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken ? csrfToken.value : '' }
+          }).then(r => r.json()).then(data => {
+            publishText.textContent = data.is_published ? 'Form published!' : 'Publish Form?';
+            publishText.style.color = data.is_published ? '#009b1f' : '#cf1912';
+          });
+        });
+      }
+      {% endif %}
 
-// ── Init ───────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  setupWordCounter('problem_statement', 'ps_counter', 300, 400);
-  setupWordCounter('proposed_solution', 'sol_counter', null, null);
-  goToStep(0);
+      // ── Init ───────────────────────────────────────────────
+      document.addEventListener('DOMContentLoaded', () => {
+        setupWordCounter('problem_statement', 'ps_counter', null, MAX_WORDS);
+        setupWordCounter('proposed_solution', 'sol_counter', null, MAX_WORDS);
+        goToStep(0);
 
-  particlesJS('particles-js', {
-    particles: {
-      number: { value: 60, density: { enable: true, value_area: 800 } },
-      color: { value: '#ffffff' },
-      shape: { type: 'circle' },
-      opacity: { value: 0.25, random: true },
-      size: { value: 3, random: true },
-      line_linked: { enable: true, distance: 150, color: '#ffffff', opacity: 0.15, width: 1 },
-      move: { enable: true, speed: 2, direction: 'none', random: false, straight: false, out_mode: 'out' }
-    },
-    interactivity: {
-      detect_on: 'canvas',
-      events: { onhover: { enable: true, mode: 'grab' }, onclick: { enable: false }, resize: true },
-      modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } }
-    },
-    retina_detect: true
-  });
-});
-</script>
-</body>
+        particlesJS('particles-js', {
+          particles: {
+            number: { value: 60, density: { enable: true, value_area: 800 } },
+            color: { value: '#ffffff' },
+            shape: { type: 'circle' },
+            opacity: { value: 0.25, random: true },
+            size: { value: 3, random: true },
+            line_linked: { enable: true, distance: 150, color: '#ffffff', opacity: 0.15, width: 1 },
+            move: { enable: true, speed: 2, direction: 'none', random: false, straight: false, out_mode: 'out' }
+          },
+          interactivity: {
+            detect_on: 'canvas',
+            events: { onhover: { enable: true, mode: 'grab' }, onclick: { enable: false }, resize: true },
+            modes: { grab: { distance: 140, line_linked: { opacity: 0.5 } } }
+          },
+          retina_detect: true
+        });
+      });
+    </script>
+  </body>
 </html>

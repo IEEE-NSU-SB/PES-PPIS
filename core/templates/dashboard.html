@@ -523,7 +523,8 @@ video{
      <div id="particles-js"></div>
     <!-- Navbar -->
     <div class="navbar">
-      <img src="{% static '/img/PPISBanner.webp' %}" alt="PPIS" />
+            <img src="{% static '/img/PPIS_LOGO_Sample.png' %}" alt="PPIS" />
+
       <div>
         Current Sessions: {% for session in token_sessions %}{{session.session_name}}{% if not forloop.last %}, {% endif %}{% endfor %}
       </div>
