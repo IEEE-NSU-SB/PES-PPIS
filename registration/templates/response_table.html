@@ -14,6 +14,7 @@
       type="text/css"
     />
     <script src="{% static 'js/particles.min.js' %}"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
       #particles-js {
         position: fixed;
@@ -22,7 +23,10 @@
         background-color: #479A46;
         z-index: -10;
       }
-      tr{
+      .tab-btn { background: #D7F5BF; color: #122812; }
+      .tab-btn.active { background: #122812; color: #ffffff; }
+      .tab-panel[hidden] { display: none; }
+      tbody tr[data-href]{
         cursor: pointer;
       }
       .logout, .close {
@@ -78,8 +82,20 @@
             {% endif %}
           </div>
         </div>
-        <!-- Scrollable wrapper -->
-        <div class="bg-white rounded-xl shadow-lg overflow-x-auto max-h-[440px]">
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-3" role="tablist">
+          <button type="button" id="tab-participants" data-tab="participants" role="tab"
+            class="tab-btn px-5 py-2 rounded-t-lg font-semibold transition">
+            Participants ({{ participant_rows|length }})
+          </button>
+          <button type="button" id="tab-contestants" data-tab="contestants" role="tab"
+            class="tab-btn px-5 py-2 rounded-t-lg font-semibold transition">
+            Contestants ({{ contestant_rows|length }} teams &bull; {{ contestant_headcount }} people)
+          </button>
+        </div>
+
+        <!-- Participants table -->
+        <div id="panel-participants" class="tab-panel bg-white rounded-xl shadow-lg overflow-x-auto max-h-[440px]">
           <table class="relative min-w-max w-full border-collapse text-sm md:text-base">
             <thead class="sticky top-0">
               <tr class="bg-[#122812] text-white">
@@ -88,26 +104,76 @@
                 <th class="text-left py-3 px-4">University</th>
                 <th class="text-left py-3 px-4">Department</th>
                 <th class="text-left py-3 px-4">Email</th>
-                <th class="text-left py-3 px-4 rounded-tr-lg">Contact</th>
+                <th class="text-left py-3 px-4">Contact</th>
+                {% if has_perm.view_finance_info %}<th class="text-left py-3 px-4">Transaction ID</th>{% endif %}
+                {% if has_perm.delete_participant %}<th class="text-left py-3 px-4 rounded-tr-lg">Action</th>{% endif %}
               </tr>
             </thead>
             <tbody>
-              {% for p in participants %}
+              {% for p in participant_rows %}
                <tr data-href="{% url 'registration:view_response' p.id %}" class="border-b hover:bg-gray-100 transition">
                  <td class="py-3 px-4">{{p.id}}</td>
                  <td class="py-3 px-4 font-medium">{{p.name}}</td>
                  <td class="py-3 px-4">{{p.university}}</td>
-                 <td class="py-3 px-4">{{p.department}}</td>
+                 <td class="py-3 px-4">{{p.get_department_display}}</td>
                  <td class="py-3 px-4 text-blue-600">{{p.email}}</td>
-                 <td class="py-3 px-4">{{p.contact_number}}</td>
+                 <td class="py-3 px-4">{{p.phone}}</td>
+                 {% if has_perm.view_finance_info %}<td class="py-3 px-4">{{p.transaction_id|default:"—"}}</td>{% endif %}
+                 {% if has_perm.delete_participant %}
+                 <td class="py-3 px-4">
+                   <button type="button" class="delete-response rounded px-3 py-1 text-white bg-red-600 hover:bg-red-700 transition" data-id="{{p.id}}" data-name="{{p.name}}" data-url="{% url 'registration:delete_response' p.id %}">Delete</button>
+                 </td>
+                 {% endif %}
                </tr>
               {% empty %}
                 <tr>
-                  <td colspan="6" class="text-center py-4 text-gray-500">No participants found.</td>
+                  <td colspan="8" class="text-center py-4 text-gray-500">No participants found.</td>
                 </tr>
-              {% endfor %} 
-              
-              <!-- rows will be here  -->   
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Contestants table -->
+        <div id="panel-contestants" class="tab-panel bg-white rounded-xl shadow-lg overflow-x-auto max-h-[440px]" hidden>
+          <table class="relative min-w-max w-full border-collapse text-sm md:text-base">
+            <thead class="sticky top-0">
+              <tr class="bg-[#122812] text-white">
+                <th class="text-left py-3 px-4 rounded-tl-lg">ID</th>
+                <th class="text-left py-3 px-4">Name</th>
+                <th class="text-left py-3 px-4">University</th>
+                <th class="text-left py-3 px-4">Department</th>
+                <th class="text-left py-3 px-4">Email</th>
+                <th class="text-left py-3 px-4">Contact</th>
+                <th class="text-left py-3 px-4">IEEE ID</th>
+                <th class="text-left py-3 px-4">Team of</th>
+                {% if has_perm.view_finance_info %}<th class="text-left py-3 px-4">Transaction ID</th>{% endif %}
+                {% if has_perm.delete_participant %}<th class="text-left py-3 px-4 rounded-tr-lg">Action</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in contestant_rows %}
+               <tr data-href="{% url 'registration:view_response' p.id %}" class="border-b hover:bg-gray-100 transition">
+                 <td class="py-3 px-4">{{p.id}}</td>
+                 <td class="py-3 px-4 font-medium">{{p.name}}</td>
+                 <td class="py-3 px-4">{{p.university}}</td>
+                 <td class="py-3 px-4">{{p.get_department_display}}</td>
+                 <td class="py-3 px-4 text-blue-600">{{p.email}}</td>
+                 <td class="py-3 px-4">{{p.phone}}</td>
+                 <td class="py-3 px-4">{{p.ieee_id|default:"—"}}</td>
+                 <td class="py-3 px-4">{{p.total_members|default:"—"}}</td>
+                 {% if has_perm.view_finance_info %}<td class="py-3 px-4">{{p.comp_transaction_id|default:"—"}}</td>{% endif %}
+                 {% if has_perm.delete_participant %}
+                 <td class="py-3 px-4">
+                   <button type="button" class="delete-response rounded px-3 py-1 text-white bg-red-600 hover:bg-red-700 transition" data-id="{{p.id}}" data-name="{{p.name}}" data-url="{% url 'registration:delete_response' p.id %}">Delete</button>
+                 </td>
+                 {% endif %}
+               </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="10" class="text-center py-4 text-gray-500">No contestants found.</td>
+                </tr>
+              {% endfor %}
             </tbody>
           </table>
         </div>
@@ -115,7 +181,7 @@
       </div>
       <div class="flex justify-center items-center mt-3 h-15 mx-5 text-center">
         <p class="text-black font-semibold italic">
-          <small>2025 © All rights reserved by IEEE NSU Student Branch</small>
+          <small>2026 © All rights reserved by IEEE NSU Student Branch</small>
         </p>
       </div>
 
@@ -125,7 +191,35 @@
       <div class="modal-box max-w-3xl">
         <h2 class="text-2xl font-bold mb-4">Statistics</h2>
 
-        <div class="overflow-x-auto">
+        <h3 class="text-lg font-semibold mb-2">Participants</h3>
+        <div class="overflow-x-auto mb-4">
+          <table class="table table-zebra w-full border">
+            <thead class="bg-[#122812] text-white">
+              <tr>
+                <th class="py-2 px-4 rounded-tl-lg">Participant</th>
+                <th class="py-2 px-4">Count</th>
+                <th class="py-2 px-4">Amount</th>
+                <th class="py-2 px-4 rounded-tr-lg">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="py-2 px-4">IEEE Member</td>
+                <td class="py-2 px-4">{{ stats.ieee_count }}</td>
+                <td class="py-2 px-4">{{ stats.ieee_fee }}</td>
+                <td class="py-2 px-4">{{ stats.ieee_total }}</td>
+              </tr>
+              <tr>
+                <td class="py-2 px-4">Non-IEEE Member</td>
+                <td class="py-2 px-4">{{ stats.non_ieee_count }}</td>
+                <td class="py-2 px-4">{{ stats.non_ieee_fee }}</td>
+                <td class="py-2 px-4">{{ stats.non_ieee_total }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">Contestants (PPIS Policy Innovation Challenge)</h3>
+        <div class="overflow-x-auto mb-4">
           <table class="table table-zebra w-full border">
             <thead class="bg-[#122812] text-white">
               <tr>
@@ -138,35 +232,36 @@
             <tbody>
               <tr>
                 <td class="py-2 px-4">IEEE Member</td>
-                <td class="py-2 px-4">{{registration_stats.member|default:0}}</td>
-                <td class="py-2 px-4">350</td>
-                <td class="py-2 px-4">{{registration_stats.ieee_member_total}}</td>
+                <td class="py-2 px-4">{{ stats.comp_ieee_count }}</td>
+                <td class="py-2 px-4">{{ stats.comp_ieee_fee }}</td>
+                <td class="py-2 px-4">{{ stats.comp_ieee_total }}</td>
               </tr>
               <tr>
                 <td class="py-2 px-4">Non-IEEE Member</td>
-                <td class="py-2 px-4">{{registration_stats.non_ieee|default:0}}</td>
-                <td class="py-2 px-4">450</td>
-                <td class="py-2 px-4">{{registration_stats.non_ieee_member_total}}</td>
+                <td class="py-2 px-4">{{ stats.comp_non_ieee_count }}</td>
+                <td class="py-2 px-4">{{ stats.comp_non_ieee_fee }}</td>
+                <td class="py-2 px-4">{{ stats.comp_non_ieee_total }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        
-        <!-- Total -->
+
+        <!-- Totals -->
         <div class="mt-4 text-left font-bold text-lg">
-          <p style="font-size:smaller;">
-          Total Amount: <span class="text-green-600">{{total_amount}}</span>
-          </p>
+          <p>Total Amount: <span class="text-green-600">{{ stats.total_amount }}</span></p>
+          <p>Total Registration: <span class="text-green-600">{{ stats.total_count }}</span></p>
           <br>
           <p style="font-weight: normal;">University List :</p>
           <ul>
-            {% for uni in university_data  %}
+            {% for uni in university_data %}
             <li class="flex items-center px-4 py-2 my-2 text-sm 
            text-gray-800 bg-gray-100 rounded-md shadow-sm hover:bg-gray-200">
     <span class="font-medium">{{ uni.university_sanitized }}</span>
     <span class="ml-2 text-gray-500">–</span>
     <span class="ml-2 text-gray-700 font-bold">[{{ uni.total }}]</span>
 </li>
+            {% empty %}
+            <li class="text-sm text-gray-500 my-2">No registrations yet.</li>
             {% endfor %}
           </ul>
         </div>
@@ -185,24 +280,32 @@
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         const searchInput = document.getElementById("tableSearch");
-        const tableBody = document.querySelector("table tbody"); // use tbody directly
 
-        searchInput.addEventListener("input", function () {
-          const query = this.value.toLowerCase();
-          const rows = tableBody.querySelectorAll("tr");
-
-          rows.forEach((row) => {
-            const cells = row.querySelectorAll("td");
-            const name = cells[1].textContent.toLowerCase(); // Name column
-            const email = cells[4].textContent.toLowerCase(); // Email column
-
-            if (name.includes(query) || email.includes(query)) {
-              row.style.display = "";
-            } else {
-              row.style.display = "none";
-            }
+        function applySearch() {
+          const query = searchInput.value.toLowerCase();
+          document.querySelectorAll(".tab-panel tbody tr").forEach((row) => {
+            if (!row.dataset.href) return; // skip the "not found" rows
+            const text = Array.from(row.cells).filter((c) => !c.querySelector("button")).map((c) => c.textContent).join(" ").toLowerCase();
+            row.style.display = text.includes(query) ? "" : "none";
           });
+        }
+        searchInput.addEventListener("input", applySearch);
+
+        // Tabs (remembered in the URL hash so a reload keeps the selected tab)
+        function showTab(name) {
+          if (name !== "contestants") name = "participants";
+          document.querySelectorAll(".tab-panel").forEach((panel) => {
+            panel.hidden = panel.id !== "panel-" + name;
+          });
+          document.querySelectorAll(".tab-btn").forEach((btn) => {
+            btn.classList.toggle("active", btn.dataset.tab === name);
+          });
+          history.replaceState(null, "", "#" + name);
+        }
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          btn.addEventListener("click", () => showTab(btn.dataset.tab));
         });
+        showTab(location.hash.replace("#", ""));
         particlesJS("particles-js", {
           particles: {
             number: { value: 80, density: { enable: true, value_area: 800 } },
@@ -240,7 +343,8 @@
     <script>
       // Make rows clickable
       document.querySelectorAll("table tbody tr").forEach(row => {
-        row.addEventListener("click", () => {
+        row.addEventListener("click", (event) => {
+          if (event.target.closest(".delete-response")) return;
           const link = row.getAttribute("data-href");
           if (link) {
             window.location.href = link; // redirect to the link
@@ -248,6 +352,36 @@
         });
       });
 
+    </script>
+    <script>
+      // Delete a participant (permanent)
+      document.querySelectorAll(".delete-response").forEach(btn => {
+        btn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          Swal.fire({
+            title: "Delete participant?",
+            html: `<b>${btn.dataset.name}</b> will be <b>permanently deleted</b> from the responses and the dashboard, including their scan records, QR code and uploaded abstract.<br>This cannot be undone.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#3085d6",
+            confirmButtonText: "Yes, delete permanently",
+          }).then((result) => {
+            if (!result.isConfirmed) return;
+            fetch(btn.dataset.url, { method: "POST", headers: { "X-CSRFToken": "{{ csrf_token }}" } })
+              .then(r => r.json())
+              .then(data => {
+                if (data.message === "success") {
+                  btn.closest("tr").remove();
+                  Swal.fire("Deleted", "The participant was permanently deleted.", "success");
+                } else {
+                  Swal.fire("Error", data.message || "Delete failed.", "error");
+                }
+              })
+              .catch(() => Swal.fire("Error", "Request failed.", "error"));
+          });
+        });
+      });
     </script>
   </body>
 </html>

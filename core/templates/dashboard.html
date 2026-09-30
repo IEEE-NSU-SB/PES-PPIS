@@ -523,7 +523,7 @@ video{
      <div id="particles-js"></div>
     <!-- Navbar -->
     <div class="navbar">
-      <img src="{% static '/img/PPISBanner.webp' %}" alt="PPIS" />
+      <img src="{% static '/img/PPIS_LOGO_Sample.png' %}" alt="PPIS" />
       <div>
         Current Sessions: {% for session in token_sessions %}{{session.session_name}}{% if not forloop.last %}, {% endif %}{% endfor %}
       </div>
@@ -1267,7 +1267,8 @@ document.querySelectorAll('.details').forEach(detailsBtn => {
       modalContent.innerHTML = `
           <img style='width:100%' src="/protected/Participant_QR/${detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent}.png">
           <input type="email" id="email" data-sl="${detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent}" style="width:100px;padding: 2px 4px;border-radius:4px;margin-bottom:5px;" name="email" placeholder="Enter email" required>
-          <button type="submit" class="send_qr">Send QR</button>`;
+          <button type="submit" class="send_qr">Send QR</button>
+          {% if has_perm.delete_participant %}<button type="button" class="delete_participant" data-sl="${detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent}" data-name="${detailsBtn.closest('tr').querySelector('td:nth-child(2)').textContent}" style="margin-top:5px;padding:4px 8px;background:#d33;color:#fff;border:none;border-radius:4px;cursor:pointer;width:100%;">Delete participant</button>{% endif %}`;
     }, 0); // Delay the positioning until after the modal has been displayed
   });
 });
@@ -1280,6 +1281,44 @@ window.addEventListener('click', (event) => {
 });
 
 let details_form = document.getElementById("details-form");
+
+{% if has_perm.delete_participant %}
+// Delete participant (permanent) - handled by delegation because the button is created dynamically
+details_form.addEventListener("click", (e) => {
+  const btn = e.target.closest(".delete_participant");
+  if (!btn) return;
+  e.preventDefault();
+  Swal.fire({
+    title: "Delete participant?",
+    html: `<b>${btn.dataset.name}</b> (SL ${btn.dataset.sl}) will be <b>permanently deleted</b> from the dashboard and the registration responses, including scan records, QR code and uploaded abstract.<br>This cannot be undone.`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#3085d6",
+    confirmButtonText: "Yes, delete permanently",
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    fetch("{% url 'core:delete_participant' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": "{{csrf_token}}" },
+      body: JSON.stringify({ participant_id: btn.dataset.sl }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.message === "success") {
+        modal.style.display = "none";
+        document.querySelectorAll("tbody tr").forEach(tr => {
+          if (tr.querySelector("td:nth-child(1)").textContent.trim() === btn.dataset.sl) tr.remove();
+        });
+        Swal.fire("Deleted", "The participant was permanently deleted.", "success");
+      } else {
+        Swal.fire("Error", data.message || "Delete failed.", "error");
+      }
+    })
+    .catch(() => Swal.fire("Error", "Request failed.", "error"));
+  });
+});
+{% endif %}
 
 details_form.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -1328,7 +1367,7 @@ document.getElementById('btn-import-participants').addEventListener('click', () 
     if (!result.isConfirmed) return;
     Swal.fire({ title: 'Importing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     fetch("{% url 'core:import_reg_participants' %}", {
-      method: 'GET',
+      method: 'POST',
       headers: { 'X-CSRFToken': '{{csrf_token}}' },
     })
     .then(r => r.json())
@@ -1357,7 +1396,7 @@ document.getElementById('btn-gen-qr').addEventListener('click', () => {
     if (!result.isConfirmed) return;
     Swal.fire({ title: 'Generating...', text: 'This may take a moment.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     fetch("{% url 'core:gen_qr' %}", {
-      method: 'GET',
+      method: 'POST',
       headers: { 'X-CSRFToken': '{{csrf_token}}' },
     })
     .then(r => r.json())

@@ -1,5 +1,5 @@
 """
-WSGI config for pes_pwrxpress project.
+WSGI config for ppis project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pes_pwrxpress.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ppis.settings')
 
 application = get_wsgi_application()

@@ -4,17 +4,18 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views import View
 from django.contrib import messages
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.models import auth
 from django.contrib.auth.decorators import login_required
-from django.db import connection
+from django.views.decorators.http import require_POST
 
 from access_ctrl.decorators import permission_required
 from access_ctrl.utils import Site_Permissions
-from pes_pwrxpress import settings
 from .renderData import Core
 
 from core.forms import CSVImportForm
 from core.models import Registered_Participant
+from system_administration.utils import log_exception
 
 # Create your views here.
 def login(request):
@@ -28,8 +29,8 @@ def login(request):
             return redirect('core:dashboard')
     
     if(request.method == 'POST'):
-        username = request.POST['username']
-        password = request.POST['password']
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
 
         user = auth.authenticate(username=username, password=password)
         if(user is not None):
@@ -37,7 +38,7 @@ def login(request):
             next_url = request.GET.get('next')
 
             auth.login(request, user)
-            if next_url:
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
                 # Redirect to the originally requested URL
                 return redirect(next_url)
             else:
@@ -58,28 +59,30 @@ def logout(request):
 
 class Process_QR_Data(View):
     def post(self, request):
+        if not Site_Permissions.user_has_permission(request.user, 'scan_session'):
+            return render(request, '404.html', status=404)
         try:
-            if request.user.is_authenticated:
-                response = Core.process_qr_data(request)
-                
-                return response
-            else:
-                return render(request, '404.html')
-        except:
-            return JsonResponse({'message':'error'})
-        
+            return Core.process_qr_data(request)
+        except Exception as e:
+            log_exception(e, request)
+            return JsonResponse({'status': 'error', 'message': 'error'})
+
     def get(self, request):
-        return render(request, '404.html')
-    
+        return render(request, '404.html', status=404)
+
+
 @login_required
 def import_csv(request):
-    form = CSVImportForm(request.POST, request.FILES)
-    if form.is_valid():
+    if not Site_Permissions.is_superuser(request.user):
+        return render(request, '404.html', status=404)
+
+    form = CSVImportForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
         csv_file = request.FILES['csv_file'].read().decode('utf-8').splitlines()
         csv_reader = csv.DictReader(csv_file)
 
         for row in csv_reader:
-            participant = Registered_Participant.objects.create(
+            Registered_Participant.objects.create(
                 id=row['Serial No.'],
                 name=row['Name'],
                 university=row['University Name'],
@@ -91,12 +94,8 @@ def import_csv(request):
             )
         
         return redirect('core:dashboard')
-    else:
-        form = CSVImportForm()
     
     return render(request, 'csv.html', {'form': form})
-
-active_sessions = 0
 
 @login_required
 @permission_required('view_qr_dashboard')
@@ -113,10 +112,11 @@ def dashboard(request):
     permissions = {
         'update_session':Site_Permissions.user_has_permission(request.user, 'update_session'),
         'scan_session':Site_Permissions.user_has_permission(request.user, 'scan_session'),
-        'scan_any_session':Site_Permissions.user_has_permission(request.user, 'scan_any_session')
+        'scan_any_session':Site_Permissions.user_has_permission(request.user, 'scan_any_session'),
+        'delete_participant':Site_Permissions.user_has_permission(request.user, 'delete_participant'),
     }
             
-    request.session['active_sessions'] = active_sessions
+    request.session['active_sessions'] = Core.active_sessions_signature()
 
     context = {
         'token_sessions':token_sessions,
@@ -132,136 +132,95 @@ def dashboard(request):
 
 class SessionUpdateAjax(View):
     def post(self, request):
+        if not Site_Permissions.user_has_permission(request.user, 'update_session'):
+            return render(request, '404.html', status=404)
         try:
-            if Site_Permissions.user_has_permission(request.user, 'update_session'):
-                sessions = json.loads(request.body)['sessions']
-                
-                if(Core.update_session(sessions=sessions)):
-                    global active_sessions
-                    active_sessions += 1
+            sessions = json.loads(request.body)['sessions']
+            if Core.update_session(sessions=sessions):
+                return JsonResponse({'message': "success"})
+            return JsonResponse({'message': "error"})
+        except Exception as e:
+            log_exception(e, request)
+            return JsonResponse({'message': 'error'})
 
-                    if active_sessions > 10000:
-                        active_sessions = 1
-
-                    return JsonResponse({'message':"success"})
-                else:
-                    return JsonResponse({'message':"error"})
-            else:
-                return render(request, '404.html')
-        except:
-            return JsonResponse({'message':'error'})
-    
     def get(self, request):
-        return render(request, '404.html')
+        return render(request, '404.html', status=404)
 
 class GetSessionStatusAjax(View):
     def post(self, request):
+        if not Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'):
+            return render(request, '404.html', status=404)
         try:
-            if Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'):
-                last_updated_date_time = json.loads(request.body)['last_updated_date_time']
-                token_sessions_with_participant_count = Core.get_all_token_sessions_with_participant_counts()
+            last_updated_date_time = json.loads(request.body)['last_updated_date_time']
+            token_sessions_with_participant_count = Core.get_all_token_sessions_with_participant_counts()
 
-                new_scans = Core.get_new_token_session_scans(last_updated_date_time)
+            new_scans = Core.get_new_token_session_scans(last_updated_date_time)
 
-                data = {}
-                status = {}
-                for x in token_sessions_with_participant_count:
-                    status.update({x['sessionid']: x['participant_count']})
-                data.update({'status':status})
-                scans = {}
-                for x in new_scans:
-                    scans.update({x['registered_participant']: x['token_session']})
-                data.update({'new_scans': scans})
+            data = {}
+            status = {}
+            for x in token_sessions_with_participant_count:
+                status.update({x['sessionid']: x['participant_count']})
+            data.update({'status': status})
+            scans = {}
+            for x in new_scans:
+                scans.update({x['registered_participant']: x['token_session']})
+            data.update({'new_scans': scans})
 
-                if(request.session['active_sessions'] != active_sessions):
-                    data.update({'session_update':''})
-                        
-                return JsonResponse(data)
-            else:
-                return render(request, '404.html')
-        except:
-            return JsonResponse({'message':'error'})
-        
+            if request.session.get('active_sessions') != Core.active_sessions_signature():
+                data.update({'session_update': ''})
+
+            return JsonResponse(data)
+        except Exception as e:
+            log_exception(e, request)
+            return JsonResponse({'message': 'error'})
+
     def get(self, request):
-        return render(request, '404.html')
+        return render(request, '404.html', status=404)
 
 class UpdateParticipantSessionAjax(View):
     def post(self, request):
+        if not Site_Permissions.user_has_permission(request.user, 'scan_session'):
+            return render(request, '404.html', status=404)
         try:
-            if Site_Permissions.user_has_permission(request.user, 'scan_session'):
-                data = json.loads(request.body)
+            data = json.loads(request.body)
+            return Core.update_participant_session(data['participant_id'], data['session_id'], data['status'])
+        except Exception as e:
+            log_exception(e, request)
+            return JsonResponse({'message': 'error'})
 
-                response = Core.update_participant_session(data['participant_id'], data['session_id'], data['status'])
-                return response
-            else:
-                return render(request, '404.html')
-        except:
-            return JsonResponse({'message':'error'})
-    
     def get(self, request):
-        return render(request, '404.html')
-    
+        return render(request, '404.html', status=404)
+
 from .qrgenerator import *
 
 @login_required
+@require_POST
 def gen(request):
-   
-    if(Site_Permissions.is_superuser(request.user)):
+    if Site_Permissions.is_superuser(request.user):
         generate_qr()
-        return JsonResponse({'message':'success'})
-    else:
-        return render(request,'404.html')
+        return JsonResponse({'message': 'success'})
+    return render(request, '404.html', status=404)
 
 
 @login_required
+@require_POST
 def import_reg_participants(request):
-
-    if(Site_Permissions.is_superuser(request.user)):
+    if Site_Permissions.is_superuser(request.user):
         Core.import_participants_from_reg()
-        return JsonResponse({'message':'success'})
-    else:
-        return render(request,'404.html')
-    
-@login_required
-def set_db_increment_counter(request):
+        return JsonResponse({'message': 'success'})
+    return render(request, '404.html', status=404)
 
-    if(Site_Permissions.is_superuser(request.user)):
-        try:
-            increment_init = int(request.GET.get('incr_v'))
-            with connection.cursor() as cursor:
-                db_engine = settings.DATABASES['default']['ENGINE']
-                if db_engine == 'django.db.backends.mysql' or db_engine == 'django.db.backends.mariadb':
-                    # MySQL or MariaDB
-                    cursor.execute(f"ALTER TABLE core_registered_participant AUTO_INCREMENT = {increment_init};")
-                elif db_engine == 'django.db.backends.postgresql':
-                    # PostgreSQL
-                    cursor.execute(f"SELECT setval('core_registered_participant_id_seq', {increment_init}, false);")
-                elif db_engine == 'django.db.backends.sqlite3':
-                    # SQLite
-                    cursor.execute(f"DELETE FROM sqlite_sequence WHERE name = 'core_registered_participant';")
-                    cursor.execute(f"INSERT INTO sqlite_sequence (name, seq) VALUES ('core_registered_participant', {increment_init - 1});")
-                else:
-                    raise Exception(f"Unsupported database engine: {db_engine}")
-        except Exception as e:
-            return JsonResponse({'message':'error', 'details': str(e)})
-
-        return JsonResponse({'message':'success'})
-    else:
-        return render(request,'404.html')
 
 @login_required
-def update_db_serial(request):
+@require_POST
+def delete_participant(request):
+    if not Site_Permissions.user_has_permission(request.user, 'delete_participant'):
+        return JsonResponse({'message': 'Permission denied'}, status=403)
+    try:
+        participant_id = int(json.loads(request.body)['participant_id'])
+    except (ValueError, KeyError, TypeError):
+        return JsonResponse({'message': 'Invalid participant'}, status=400)
 
-    if(Site_Permissions.is_superuser(request.user)):
-        try:
-            counter = 1
-            participants = Registered_Participant.objects.values('id').order_by('id')
-            for participant in participants:
-                Registered_Participant.objects.filter(id=participant['id']).update(id=counter)
-                counter += 1
-        except Exception as e:
-            return JsonResponse({'message':'error', 'details':str(e)})
-
-        return JsonResponse({'message':'success'})
-    else:
-        return render(request,'404.html')
+    if Core.delete_participant(registered_id=participant_id):
+        return JsonResponse({'message': 'success'})
+    return JsonResponse({'message': 'Participant not found'}, status=404)
