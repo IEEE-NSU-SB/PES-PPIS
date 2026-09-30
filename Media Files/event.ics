@@ -1,0 +1,15 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:ics.py - http://git.io/lLljaA
+BEGIN:VEVENT
+DTSTAMP:20260925T194310Z
+DESCRIPTION:PPIS (Power Policy & Innovation Summit) — IEEE NSU PES SBC's flagship event bringing together students\, young professionals\, industry leaders\, and policy experts to tackle Bangladesh's energy challenges through innovation and collaboration.
+DTEND:20261031T130000Z
+LAST-MODIFIED:20260925T194310Z
+LOCATION:North South University\, Dhaka\, Bangladesh
+DTSTART:20261023T023000Z
+SUMMARY:PPIS — Power Policy & Innovation Summit
+UID:ppis-2026@ieeensu.org
+URL:https://www.facebook.com/ieeensupes
+END:VEVENT
+END:VCALENDAR

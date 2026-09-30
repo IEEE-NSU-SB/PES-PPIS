@@ -61,10 +61,10 @@ class Token_Participant(models.Model):
     class Meta:
         verbose_name="Applied Participant Token"
 
-    def __self__(self) -> str:
+    def __str__(self) -> str:
         return str(self.pk)
-    
-    
+
+
 # class User_Permission(models.Model):
 #     '''This model stores the permission data for a site user account.\n
 #         -`user` the user for whom the permissions are being set\n

@@ -155,3 +155,4 @@ database-info.txt
 Participant Files/
 sample_data/
 staticfiles/
+!.env.example

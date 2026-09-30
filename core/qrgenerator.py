@@ -3,13 +3,14 @@
 import json
 import os
 import qrcode
+from django.conf import settings
 
 from core.models import Registered_Participant
 
 
 def generate_qr():
 
-    output_folder = "Participant Files/Participant_QR"
+    output_folder = os.path.join(settings.PROTECTED_ROOT, "Participant_QR")
 
     # Make sure the folder exists
     os.makedirs(output_folder, exist_ok=True)  # ✅ creates folder if it doesn't exist
@@ -23,7 +24,7 @@ def generate_qr():
         img = qrcode.make(json.dumps({"unqc":data[0]}))
     
         # Saving each QR code as an image file
-        img.save(f'Participant Files/Participant_QR/{data[1]}.png')
+        img.save(os.path.join(output_folder, f'{data[1]}.png'))
         print(f'QR Code {data[1]} saved as {data[1]}.png')
 
     print("All QR codes have been generated successfully!")

@@ -1,210 +1,174 @@
 import base64
+import json
+import os
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import json
-import os
 from time import sleep
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
-from django.shortcuts import redirect, render
-from django.contrib.auth.decorators import login_required
-from dotenv import set_key
-from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from django.core.files.base import ContentFile
-from django.template.loader import render_to_string
-from core.models import Registered_Participant
-from pes_pwrxpress import settings
-from django.contrib import messages
-from django.shortcuts import render
-from django.contrib.admin.views.decorators import staff_member_required
-from django.views.decorators.http import require_POST
-import csv
 
-from registration.models import EventFormStatus
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.http import HttpResponseBadRequest, JsonResponse
+from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
+from django.views.decorators.http import require_POST
+from dotenv import set_key
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+
+from access_ctrl.utils import Site_Permissions
+from core.models import Registered_Participant
 from system_administration.utils import log_exception
 
-# Create your views here.
+SENDER = "IEEE NSU SB Portal <ieeensusb.portal@gmail.com>"
+
+QR_EMAIL_BODY = (
+    "Dear Participant,\n\n"
+    "Your QR code for the PPIS — Power Policy & Innovation Summit event is attached in this email.\n"
+    "This QR code is essential to collect your food and goodies.\n\n"
+    "Best regards,\n\n"
+    "IEEE NSU SB."
+)
+
+
+def _is_local_host(request):
+    return request.get_host() in ("127.0.0.1:8000", "localhost:8000")
+
+
+def _attach_file(message, file_path, filename):
+    """Attach a file from disk to a MIME message."""
+    with open(file_path, "rb") as f:
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(f.read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition', 'attachment', filename=filename)
+    message.attach(part)
+
+
+def _send_message(service, message):
+    encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    return service.users().messages().send(userId="me", body={"raw": encoded_message}).execute()
+
+
+def _build_service():
+    """Returns a Gmail service, or None if Google API access needs to be re-authorised."""
+    credentials = get_credentials()
+    if not credentials:
+        return None
+    return build(settings.GOOGLE_MAIL_API_NAME, settings.GOOGLE_MAIL_API_VERSION, credentials=credentials)
+
+
 @login_required
 def send_emails(request):
+    """Bulk-sends the QR code to every registered participant. Superuser only.
+    Not routed by default because it is slow (rate-limited sends)."""
+    if not Site_Permissions.is_superuser(request.user):
+        return render(request, '404.html', status=404)
 
-    credentials = get_credentials()
-    # if not credentials:
-    #     print("NOT OKx")
-    #     return False
-    # try:
-    service = build(settings.GOOGLE_MAIL_API_NAME, settings.GOOGLE_MAIL_API_VERSION, credentials=credentials)
-    print(settings.GOOGLE_MAIL_API_NAME, settings.GOOGLE_MAIL_API_VERSION, 'service created successfully')
+    service = _build_service()
+    if service is None:
+        return JsonResponse({'message': 'Please re-authorise google api'})
 
-    registered_participants = Registered_Participant.objects.all()
-    for participant in registered_participants:
+    for participant in Registered_Participant.objects.all():
         try:
             message = MIMEMultipart()
-
-            message["From"] = "IEEE NSU SB Portal <ieeensusb.portal@gmail.com>"
+            message["From"] = SENDER
             message["To"] = participant.email
             message["Cc"] = 'nujhat.saleh@northsouth.edu'
             message["Subject"] = 'Registration Confirmation & Event Guidelines for PPIS — Power Policy & Innovation Summit'
+            message.attach(MIMEText(render_to_string('email_template.html', {'name': participant.name}), 'html'))
 
-            message.attach(MIMEText(render_to_string('email_template.html', {'name':participant.name}), 'html'))
+            _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'Participant_QR', f'{participant.id}.png'), f'{participant.id}.png')
+            _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'PPIS Timeline.pdf'), 'PPIS Timeline.pdf')
+            _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'PPISBanner.webp'), 'PPISBanner.webp')
 
-            content_file = open(f"Participant Files/Participant_QR/{participant.id}.png", "rb")
-
-            part = MIMEBase('application', 'octet-stream')
-            part.set_payload(content_file.read())
-            encoders.encode_base64(part)
-            part.add_header(
-                'Content-Disposition',
-                f'attachment; filename={participant.name}.png',
-            )
-            message.attach(part)
-
-            content_file2 = open(f"Participant Files/PPIS Timeline.pdf", "rb")
-
-            part2 = MIMEBase('application', 'octet-stream')
-            part2.set_payload(content_file2.read())
-            encoders.encode_base64(part2)
-            part2.add_header(
-                'Content-Disposition',
-                f'attachment; filename=PPIS Timeline.pdf',
-            )
-            message.attach(part2)
-
-            content_file3 = open(f"Participant Files/PPISBanner.webp", "rb")
-
-            part3 = MIMEBase('application', 'octet-stream')
-            part3.set_payload(content_file3.read())
-            encoders.encode_base64(part3)
-            part3.add_header(
-                'Content-Disposition',
-                f'attachment; filename=PPISBanner.webp',
-            )
-            message.attach(part3)
-
-            # encoded message
-            encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-            
-            create_message = {"raw": encoded_message}
-
-            send_message = (
-                service.users()
-                .messages()
-                .send(userId="me", body=create_message)
-                .execute()
-            )
-
-            print(f'Serial: {participant.id}, Message Id: {send_message["id"]}')
+            _send_message(service, message)
             sleep(3)
         except Exception as e:
-            print(e)
-            return JsonResponse({'message':'error'})
+            log_exception(e, request)
+            return JsonResponse({'message': 'error'})
 
-    return JsonResponse({'message':'success'})
+    return JsonResponse({'message': 'success'})
+
 
 @login_required
+@require_POST
 def send_email(request):
-    
-    credentials = get_credentials()
+    """Re-sends a participant's QR code to a given email address."""
+    if not Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'):
+        return render(request, '404.html', status=404)
 
-    data = json.loads(request.body)
-    if not credentials:
-        return JsonResponse({'message':'Please re-authorise google api'})
     try:
-        service = build(settings.GOOGLE_MAIL_API_NAME, settings.GOOGLE_MAIL_API_VERSION, credentials=credentials)
-        print(settings.GOOGLE_MAIL_API_NAME, settings.GOOGLE_MAIL_API_VERSION, 'service created successfully')
+        data = json.loads(request.body)
+        email_addr = str(data['emailAddr']).strip()
+        validate_email(email_addr)
+        participant_id = int(data['participant_id'])
+    except (ValueError, KeyError, TypeError, ValidationError):
+        return JsonResponse({'message': 'Invalid email address or participant'})
+
+    qr_path = os.path.join(settings.PROTECTED_ROOT, 'Participant_QR', f'{participant_id}.png')
+    if not os.path.isfile(qr_path):
+        return JsonResponse({'message': 'QR code not found for this participant'})
+
+    try:
+        service = _build_service()
+        if service is None:
+            return JsonResponse({'message': 'Please re-authorise google api'})
+
         message = MIMEMultipart()
-        message["From"] = "IEEE NSU SB Portal <ieeensusb.portal@gmail.com>"
-        message["To"] = data['emailAddr']
+        message["From"] = SENDER
+        message["To"] = email_addr
         message["Subject"] = "QR Code for PPIS — Power Policy & Innovation Summit"
-        message.attach(MIMEText(f'''Dear Participant,
-
-Your QR code for the PPIS — Power Policy & Innovation Summit event is attached in this email.
-This QR code is essential to collect your food and goodies.
-
-Best regards,
-
-IEEE NSU SB.''', 'plain'))
-        
-        content_file = open(f"Participant Files/Participant_QR/{data['participant_id']}.png", "rb")
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(content_file.read())
-        encoders.encode_base64(part)
-        part.add_header(
-            'Content-Disposition',
-            f'attachment; filename={data["participant_id"]}.png',
-        )
-        message.attach(part)
-        # encoded message
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        
-        create_message = {"raw": encoded_message}
-        send_message = (
-            service.users()
-            .messages()
-            .send(userId="me", body=create_message)
-            .execute()
-        )
-        print(f'Message Id: {send_message["id"]}')
+        message.attach(MIMEText(QR_EMAIL_BODY, 'plain'))
+        _attach_file(message, qr_path, f'{participant_id}.png')
+        _send_message(service, message)
     except Exception as e:
-        return JsonResponse({'message':'error'})
-    
-    return JsonResponse({'message':'success'})
+        log_exception(e, request)
+        return JsonResponse({'message': 'error'})
+
+    return JsonResponse({'message': 'success'})
+
 
 def send_registration_email(request, name, email):
-    credentials = get_credentials()
-
-    if not credentials:
-        return JsonResponse({'message':'Please re-authorise google api'})
+    """Sends the registration confirmation email. Returns True on success, False otherwise."""
     try:
-        service = build(settings.GOOGLE_MAIL_API_NAME, settings.GOOGLE_MAIL_API_VERSION, credentials=credentials)
-        print(settings.GOOGLE_MAIL_API_NAME, settings.GOOGLE_MAIL_API_VERSION, 'service created successfully')
+        validate_email(str(email))
+        service = _build_service()
+        if service is None:
+            return False
+
         message = MIMEMultipart()
-        message["From"] = "IEEE NSU SB Portal <ieeensusb.portal@gmail.com>"
+        message["From"] = SENDER
         message["To"] = str(email)
         message["Subject"] = "PPIS — Registration Successful"
 
         scheme = "https" if request.is_secure() else "http"
         ics_link = f"{scheme}://{request.get_host()}/media_files/event.ics"
-        print(ics_link)
-        message.attach(MIMEText(render_to_string('submission_email_template.html', {'participant_name':name, 'ics_link':ics_link}), 'html'))
+        message.attach(MIMEText(render_to_string('submission_email_template.html', {'participant_name': name, 'ics_link': ics_link}), 'html'))
+        _attach_file(message, os.path.join(settings.MEDIA_ROOT, 'event.ics'), 'PPIS2026.ics')
 
-        content_file = open(f"Participant Files/event.ics", "rb")
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(content_file.read())
-        encoders.encode_base64(part)
-        part.add_header(
-            'Content-Disposition',
-            f'attachment; filename=PPIS2026.ics',
-        )
-        message.attach(part)
-        
-        # encoded message
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        
-        create_message = {"raw": encoded_message}
-        send_message = (
-            service.users()
-            .messages()
-            .send(userId="me", body=create_message)
-            .execute()
-        )
-        print(f'Message Id: {send_message["id"]}')
+        _send_message(service, message)
     except Exception as e:
-        print(e)
-        return JsonResponse({'message':'error'})
-    
-    return JsonResponse({'message':'success'})
+        log_exception(e, request)
+        return False
+
+    return True
+
 
 @login_required
 def authorize(request):
+    if not Site_Permissions.is_superuser(request.user):
+        return render(request, '404.html', status=404)
 
     credentials = get_credentials()
     if not credentials:
         flow = get_google_auth_flow(request)
-        if(request.META['HTTP_HOST'] == "127.0.0.1:8000" or request.META['HTTP_HOST'] == "localhost:8000"):
+        if _is_local_host(request):
             authorization_url, state = flow.authorization_url(
                 access_type='offline',
                 include_granted_scopes='true',
@@ -218,28 +182,30 @@ def authorize(request):
         request.session['state'] = state
         return redirect(authorization_url)
 
-    # if credentials != None:
-        # messages.success(request, "Already authorized!")    
     return redirect('core:dashboard')
 
+
+@login_required
 def oauth2callback(request):
+    if not Site_Permissions.is_superuser(request.user):
+        return render(request, '404.html', status=404)
+
     try:
-        if(request.META['HTTP_HOST'] == "127.0.0.1:8000" or request.META['HTTP_HOST'] == "localhost:8000"):
+        if _is_local_host(request):
             os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
         state = request.GET.get('state')
-        if state != request.session.pop('state', None):
+        if not state or state != request.session.pop('state', None):
             return HttpResponseBadRequest('Invalid state parameter')
-        
+
         flow = get_google_auth_flow(request)
         flow.fetch_token(authorization_response=request.build_absolute_uri())
-        credentials = flow.credentials
-        save_credentials(credentials)
-        # messages.success(request, "Authorized")
+        save_credentials(flow.credentials)
         return redirect('core:dashboard')
-    except:
-        # messages.warning(request, "Access Denied!")
+    except Exception as e:
+        log_exception(e, request)
         return redirect('core:dashboard')
-    
+
+
 def get_google_auth_flow(request):
     client_config = {
         'web': {
@@ -251,10 +217,8 @@ def get_google_auth_flow(request):
             'client_secret': settings.GOOGLE_CLOUD_CLIENT_SECRET,
         }
     }
-    if(request.META['HTTP_HOST'] == "127.0.0.1:8000" or request.META['HTTP_HOST'] == "localhost:8000"):
-        redirect_uri=f"http://{request.META['HTTP_HOST']}/init/oauth2callback"
-    else:
-        redirect_uri=f"https://{request.META['HTTP_HOST']}/init/oauth2callback"
+    scheme = "http" if _is_local_host(request) else "https"
+    redirect_uri = f"{scheme}://{request.get_host()}/init/oauth2callback"
 
     return Flow.from_client_config(
         client_config,
@@ -262,41 +226,48 @@ def get_google_auth_flow(request):
         redirect_uri=redirect_uri
     )
 
+
 def save_credentials(credentials):
-        set_key('.env', 'GOOGLE_CLOUD_TOKEN', credentials.token)
-        settings.GOOGLE_CLOUD_TOKEN = credentials.token
-        if(credentials.refresh_token):
-            set_key('.env', 'GOOGLE_CLOUD_REFRESH_TOKEN', credentials.refresh_token)
-            settings.GOOGLE_CLOUD_REFRESH_TOKEN = credentials.refresh_token
-        if(credentials.expiry):
-            set_key('.env', 'GOOGLE_CLOUD_EXPIRY', credentials.expiry.isoformat())
-            settings.GOOGLE_CLOUD_EXPIRY = credentials.expiry.isoformat()
+    env_path = str(settings.BASE_DIR / '.env')
+    set_key(env_path, 'GOOGLE_CLOUD_TOKEN', credentials.token)
+    settings.GOOGLE_CLOUD_TOKEN = credentials.token
+    if credentials.refresh_token:
+        set_key(env_path, 'GOOGLE_CLOUD_REFRESH_TOKEN', credentials.refresh_token)
+        settings.GOOGLE_CLOUD_REFRESH_TOKEN = credentials.refresh_token
+    if credentials.expiry:
+        set_key(env_path, 'GOOGLE_CLOUD_EXPIRY', credentials.expiry.isoformat())
+        settings.GOOGLE_CLOUD_EXPIRY = credentials.expiry.isoformat()
 
 
 def get_credentials():
-    
-        creds = None
+    """Returns valid Google credentials (refreshing if needed), or None if re-authorisation is required."""
+    if not settings.GOOGLE_CLOUD_TOKEN:
+        return None
 
-        if settings.GOOGLE_CLOUD_TOKEN:
-            creds = Credentials.from_authorized_user_info({
-                'token':settings.GOOGLE_CLOUD_TOKEN,
-                'refresh_token':settings.GOOGLE_CLOUD_REFRESH_TOKEN,
-                'token_uri':settings.GOOGLE_CLOUD_TOKEN_URI,
-                'client_id':settings.GOOGLE_CLOUD_CLIENT_ID,
-                'client_secret':settings.GOOGLE_CLOUD_CLIENT_SECRET,
-                'expiry':settings.GOOGLE_CLOUD_EXPIRY
-            },scopes=settings.SCOPES)
+    info = {
+        'token': settings.GOOGLE_CLOUD_TOKEN,
+        'refresh_token': settings.GOOGLE_CLOUD_REFRESH_TOKEN,
+        'token_uri': settings.GOOGLE_CLOUD_TOKEN_URI,
+        'client_id': settings.GOOGLE_CLOUD_CLIENT_ID,
+        'client_secret': settings.GOOGLE_CLOUD_CLIENT_SECRET,
+    }
+    if settings.GOOGLE_CLOUD_EXPIRY:
+        info['expiry'] = settings.GOOGLE_CLOUD_EXPIRY
 
-        if not creds or not creds.valid:
+    try:
+        creds = Credentials.from_authorized_user_info(info, scopes=settings.SCOPES)
+    except (ValueError, TypeError):
+        return None
 
-            if creds and creds.expired and creds.refresh_token:
-                try:
-                    creds.refresh(Request())
-                    save_credentials(creds)
-                except:
-                    print("NOT OK")
-                    return None
-            
-            return creds
-
+    if creds.valid:
         return creds
+
+    if creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return creds
+        except Exception:
+            return None
+
+    return None

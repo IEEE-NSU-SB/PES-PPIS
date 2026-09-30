@@ -13,6 +13,7 @@ urlpatterns = [
     path('registration/toggle-publish/', toggle_publish, name='toggle_publish'),
     path('registration/responses/', response_table, name='response_table'),
     path('registration/response/<int:id>/', view_response, name='view_response'),
+    path('registration/response/<int:id>/delete/', delete_response, name='delete_response'),
     path('submit-form/', submit_form, name='submit_form'),
     path('download-excel/', download_excel, name='download_excel'),
 

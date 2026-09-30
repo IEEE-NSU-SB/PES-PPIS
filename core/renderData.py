@@ -1,10 +1,14 @@
 
 import json
+import os
 import random
 import string
 
+from django.conf import settings
+
 from django.http import JsonResponse
 from core.models import Registered_Participant, Token_Participant, Token_Session
+from django.db import transaction
 from django.db.models import Count, F, Prefetch, Value
 from django.db.models.functions import Coalesce
 
@@ -59,31 +63,35 @@ class Core:
             -`participant.sl` the participant id for which the qr is scanned\n
             -`participant.name` the participant name for which the qr is scanned'''
         
+        # Get the session id from header
+        sessionid = request.headers.get('session-id')
         try:
-            # Get the POST data from the request body
-            print(f"Received RAW QR Data: {request.body}")
-            # Get the session id from header
-            sessionid=request.headers.get('session-id')
-            # Get the data from request body
             data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'error': 'Invalid JSON'})
 
-            # Get the participant using the unique qr code from data
+        try:
             participant = Registered_Participant.objects.get(unique_code=data.get('unqc'))
-            # Get the session using sessionid
             session = Token_Session.objects.get(id=sessionid)
+        except (Registered_Participant.DoesNotExist, Token_Session.DoesNotExist, ValueError, TypeError, AttributeError):
+            return JsonResponse({'status': 'error', 'error': 'Invalid QR code or session'})
 
-            # If the participant is already scanned/added for this session then reject it
-            if len(Token_Participant.objects.filter(registered_participant=participant,token_session=sessionid)) > 0:
-                return JsonResponse({'status': 'rejected', 'session':session.session_name, 'session_id':session.id, 'participant': {'sl':participant.id, 'name': participant.name}})
-            else:
-                # Accept and add the participant for this session
-                Token_Participant.objects.create(registered_participant=participant,token_session=session)
-                return JsonResponse({'status': 'accepted', 'session':session.session_name, 'session_id':session.id, 'participant': {'sl':participant.id, 'name': participant.name}})
-                
-        except json.JSONDecodeError as e:
-            print(f"JSON decode error: {e}")
-            return JsonResponse({'status': 'error','error': 'Invalid JSON'})
-        
+        # Add the participant for this session, or reject if already scanned (atomic to avoid duplicate scans)
+        with transaction.atomic():
+            _, created = Token_Participant.objects.get_or_create(registered_participant=participant, token_session=session)
+
+        return JsonResponse({
+            'status': 'accepted' if created else 'rejected',
+            'session': session.session_name,
+            'session_id': session.id,
+            'participant': {'sl': participant.id, 'name': participant.name},
+        })
+
+    def active_sessions_signature():
+        # A string that changes whenever the set of active sessions changes. Used to tell open dashboards to refresh.
+
+        return ','.join(str(i) for i in Token_Session.objects.filter(is_active=True).order_by('id').values_list('id', flat=True))
+
     def update_session(sessions):
         '''Sets sessions to active or inactive. The param `sessions` is a list of session ids that need to be active.'''
 
@@ -116,28 +124,29 @@ class Core:
             -`participant.sl` the participant id for which the qr is scanned\n
             -`participant.name` the participant name for which the qr is scanned'''
 
-        # Get the participant using the participant_id
-        participant = Registered_Participant.objects.get(id=participant_id)
-        # Get the token session using the session_id
-        session = Token_Session.objects.get(id=session_id)
-        
-        if(status == 'accepted'):
-            # If the participant is not scanned already, then add it
-            if len(Token_Participant.objects.filter(registered_participant=participant, token_session=session)) == 0:
-                Token_Participant.objects.create(registered_participant=participant,token_session=session)
-                return JsonResponse({'message':'Accepted', 'session':session.session_name, 'participant': {'sl':participant.id, 'name': participant.name}})
-            else:
-                # The participant is already scanned/added previously, hence reject it
-                return JsonResponse({'message':'Participant is already in session', 'session':session.session_name, 'participant': {'sl':participant.id, 'name': participant.name}})
-        elif(status == 'rejected'):
-            # If the participant is already scanned/added previously, then remove it
-            if len(Token_Participant.objects.filter(registered_participant=participant, token_session=session)) != 0:
-                Token_Participant.objects.get(registered_participant=participant,token_session=session).delete()
-                return JsonResponse({'message':'Rejected', 'session':session.session_name, 'participant': {'sl':participant.id, 'name': participant.name}})
-            else:
-                # The participant has not been scanned/added for this session
-                return JsonResponse({'message':'Participant is not session', 'session':session.session_name, 'participant': {'sl':participant.id, 'name': participant.name}})
-    
+        try:
+            participant = Registered_Participant.objects.get(id=participant_id)
+            session = Token_Session.objects.get(id=session_id)
+        except (Registered_Participant.DoesNotExist, Token_Session.DoesNotExist, ValueError, TypeError):
+            return JsonResponse({'message': 'Invalid participant or session'})
+
+        info = {'session': session.session_name, 'participant': {'sl': participant.id, 'name': participant.name}}
+
+        if status == 'accepted':
+            _, created = Token_Participant.objects.get_or_create(registered_participant=participant, token_session=session)
+            if created:
+                return JsonResponse({'message': 'Accepted', **info})
+            # The participant is already scanned/added previously, hence reject it
+            return JsonResponse({'message': 'Participant is already in session', **info})
+        elif status == 'rejected':
+            deleted, _ = Token_Participant.objects.filter(registered_participant=participant, token_session=session).delete()
+            if deleted:
+                return JsonResponse({'message': 'Rejected', **info})
+            # The participant has not been scanned/added for this session
+            return JsonResponse({'message': 'Participant is not in session', **info})
+
+        return JsonResponse({'message': 'Invalid status'})
+
     def generate_unique_code(name: str, university: str) -> str:
         # Function to pick a random part of a string
         def get_random_part(s):
@@ -172,22 +181,77 @@ class Core:
         '''Imports all participants from form_participant table to registered_participant table and also generates their unique codes\n
             This is done when participants are confirmed for event.'''
         
-        existing_ids = set(
+        seen_emails = set(
             Registered_Participant.objects.values_list('email', flat=True)
         )
-        objects = [
-            Registered_Participant(
+        used_codes = set(
+            Registered_Participant.objects.values_list('unique_code', flat=True)
+        )
+        objects = []
+        for participant in Form_Participant.objects.order_by('created_at'):
+            if participant.email in seen_emails:
+                continue
+            seen_emails.add(participant.email)
+
+            # unique_code has a unique constraint, so make sure a random collision cannot break the import
+            code = Core.generate_unique_code(participant.name, participant.university)
+            while code in used_codes:
+                code = Core.generate_unique_code(participant.name, participant.university)
+            used_codes.add(code)
+
+            objects.append(Registered_Participant(
                 name=participant.name,
                 university=participant.university,
                 contact_no=participant.phone,
                 email=participant.email,
-                unique_code=Core.generate_unique_code(participant.name, participant.university),
-            )
-            for participant in Form_Participant.objects.all()
-            if participant.email not in existing_ids
-        ]
+                unique_code=code,
+            ))
 
         Registered_Participant.objects.bulk_create(objects)
 
         return True
-        
+
+    def _remove_file(*parts):
+        # Deletes a file inside PROTECTED_ROOT (parts are reduced to bare file names, so nothing outside can be touched)
+        safe_parts = [os.path.basename(str(x)) for x in parts if x]
+        if not safe_parts:
+            return
+        path = os.path.join(settings.PROTECTED_ROOT, *safe_parts)
+        try:
+            if os.path.isfile(path):
+                os.remove(path)
+        except OSError:
+            pass
+
+    def delete_participant(registered_id=None, form_id=None):
+        """Permanently deletes a participant from BOTH the dashboard (`Registered_Participant`, with its scan records and QR image)
+            and the registration responses (`Form_Participant`, with its uploaded abstract). The two records are matched by email.\n
+            Pass either `registered_id` (dashboard) or `form_id` (response). Returns True if anything was deleted."""
+
+        registered = list(Registered_Participant.objects.filter(id=registered_id)) if registered_id is not None else []
+        forms = list(Form_Participant.objects.filter(id=form_id)) if form_id is not None else []
+
+        # Find the matching record on the other side by email
+        emails = {x.email.strip().lower() for x in registered + forms if x.email and x.email.strip()}
+        for email in emails:
+            registered += [x for x in Registered_Participant.objects.filter(email__iexact=email) if x not in registered]
+            forms += [x for x in Form_Participant.objects.filter(email__iexact=email) if x not in forms]
+
+        if not registered and not forms:
+            return False
+
+        # Django clears `id` after delete(), so collect the file names first
+        abstract_files = [form.abstract_file for form in forms]
+        qr_files = [f'{reg.id}.png' for reg in registered]
+
+        with transaction.atomic():
+            for form in forms:
+                form.delete()
+            for reg in registered:
+                reg.delete()
+
+        for name in abstract_files:
+            Core._remove_file('Abstracts', name)
+        for name in qr_files:
+            Core._remove_file('Participant_QR', name)
+        return True
