@@ -507,7 +507,7 @@
         <div id="step1" class="card-panel p-6 hidden">
           <!-- Step bar -->
           <div id="stepBar1" class="step-bar mb-6"></div>
-          <h2 class="section_heading">Team leaders details</h2>
+          <h2 class="section_heading">General Information</h2>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
             <div>
@@ -956,24 +956,22 @@
                 <label class="sdg-label">
                   <input type="radio" name="track" value="track_a" required />
                   <div>
-                    <strong>Track A:</strong> Grid Modernization, Smart Grids
-                    &amp; Load-Shedding Mitigation
+                    <strong>Track A:</strong> Irrigation, Community Village, EV Charging
                   </div>
                 </label>
                 <label class="sdg-label">
                   <input type="radio" name="track" value="track_b" />
                   <div>
-                    <strong>Track B:</strong> Renewable Integration, Energy
-                    Storage &amp; Decarbonization
+                    <strong>Track B:</strong> Urban Community, Carbon Capture Modelling, Economically Feasable 
                   </div>
                 </label>
-                <label class="sdg-label">
+                {% comment %} <label class="sdg-label">
                   <input type="radio" name="track" value="track_c" />
                   <div>
                     <strong>Track C:</strong> Energy Policy, FDI Frameworks
                     &amp; Market Restructuring
                   </div>
-                </label>
+                </label> {% endcomment %}
               </div>
             </div>
 
@@ -992,7 +990,7 @@
               />
             </div>
 
-            <div>
+            {% comment %} <div>
               <label class="input_label">
                 Problem Statement <span class="text-red-600">*</span>
                 <span class="text-gray-400 text-xs font-normal">
@@ -1009,9 +1007,9 @@
               ></textarea>
 
               <div class="word-counter" id="ps_counter">0 / max 400 words</div>
-            </div>
+            </div> {% endcomment %}
 
-            <div>
+            {% comment %} <div>
               <label class="input_label">
                 Proposed Solution Summary <span class="text-red-600">*</span>
                 <span class="text-gray-400 text-xs font-normal">
@@ -1028,9 +1026,9 @@
               ></textarea>
 
               <div class="word-counter" id="sol_counter">0 / max 400 words</div>
-            </div>
+            </div> {% endcomment %}
 
-            <div>
+            {% comment %} <div>
               <label class="input_label"
                 >Targeted SDG Alignment <span class="text-red-600">*</span>
                 <span class="text-gray-400 text-xs font-normal"
@@ -1055,7 +1053,7 @@
                   SDG 13: Climate Action</label
                 >
               </div>
-            </div>
+            </div> {% endcomment %}
           </div>
 
           <div class="flex justify-between mt-6">
