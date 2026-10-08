@@ -401,3 +401,21 @@ class TrackAndFormFieldTests(TestCase):
         self.assertNotContains(response, 'Proposed Solution')
         self.assertNotContains(response, 'SDG Alignment')
         self.assertContains(response, 'Track A: Irrigation, Community Village, EV Charging')
+
+
+class ChallengeDetailsTests(TestCase):
+    def test_details_are_shown_above_the_registration_type_choice(self):
+        EventFormStatus.objects.create(is_published=True)
+        html = self.client.get('/').content.decode()
+        step0 = html[html.index('id="step0"'):html.index('id="step1"')]
+        details = step0.index('id="challengeDetails"')
+        heading = step0.index('Choose Your Registration Type')
+        self.assertLess(details, heading)
+        for text in ('Power Policy Innovation Challenge', 'Prize Pool:', '65,000 BDT', 'October 8 - October 15, 2026',
+                     '2-3 members per team (no solo entries)', 'Each team must have a unique team name',
+                     'Round 2 (Top 20 Pitch)', 'AUDI801', 'Grand Finale (Top 5 Defense)',
+                     'Only one registration per team is needed', 'Lutful Islam Nabid', '+8801712902722',
+                     'Ridwan Islam Rifath', '+8801919356207'):
+            self.assertIn(text, step0, text)
+        # not repeated on the later steps
+        self.assertEqual(html.count('id="challengeDetails"'), 1)
