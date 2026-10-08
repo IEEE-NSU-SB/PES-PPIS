@@ -411,7 +411,7 @@ class ChallengeDetailsTests(TestCase):
         details = step0.index('id="challengeDetails"')
         heading = step0.index('Choose Your Registration Type')
         self.assertLess(details, heading)
-        for text in ('Power Policy Innovation Challenge', 'Prize Pool:', '65,000 BDT', 'October 8 - October 15, 2026',
+        for text in ('Power Policy Innovation Challenge', 'Prize Pool:', '65,000 BDT', 'October 8 - October 16, 2026', 'Abstract Submission Deadline:</strong> October 16, 2026,',
                      '2-3 members per team (no solo entries)', 'Each team must have a unique team name',
                      'Round 2 (Top 20 Pitch)', 'AUDI801', 'Grand Finale (Top 5 Defense)',
                      'Only one registration per team is needed', 'Lutful Islam Nabid', '+8801712902722',
@@ -419,3 +419,12 @@ class ChallengeDetailsTests(TestCase):
             self.assertIn(text, step0, text)
         # not repeated on the later steps
         self.assertEqual(html.count('id="challengeDetails"'), 1)
+        # the event name is the title of the block, and the details carry no *** markers
+        import re
+        title = re.search(r'PPIS Policy Innovation Challenge\s*</h2>', step0)
+        self.assertIsNotNone(title)
+        self.assertLess(title.start(), step0.index('The IEEE NSU PES Student Branch Chapter'))
+        self.assertNotIn('***', step0)
+        self.assertIn('Registration Deadline: October 16, 2026, 11:59 PM (GMT+6)', step0)
+        # no fee shown on the Competition card (registration is free; selected teams pay later)
+        self.assertNotIn('Team Registration: BDT', html)
