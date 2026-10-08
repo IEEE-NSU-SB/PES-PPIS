@@ -62,7 +62,6 @@ class Form_Participant(models.Model):
 
     # Participant payment
     membership_type = models.CharField(max_length=20, choices=MEMBERSHIP_CHOICES, blank=True, null=True)
-    transaction_id = models.CharField(max_length=100, blank=True, null=True)
 
     # Competition — team leader extra
     ieee_id = models.CharField(max_length=50, blank=True, null=True, default='')
@@ -94,9 +93,6 @@ class Form_Participant(models.Model):
     proposed_solution = models.TextField(blank=True, null=True)
     sdg_alignment = models.JSONField(default=list, blank=True)
     abstract_file = models.CharField(max_length=255, blank=True, null=True)
-
-    # Competition payment
-    comp_transaction_id = models.CharField(max_length=100, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -15,7 +15,7 @@ from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
-from dotenv import set_key
+from dotenv import dotenv_values, set_key
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -134,25 +134,29 @@ def send_email(request):
     return JsonResponse({'message': 'success'})
 
 
-def send_registration_email(request, name, email):
-    """Sends the registration confirmation email. Returns True on success, False otherwise."""
+# Every registrant receives both of these confirmation emails, in this order: (subject, template)
+REGISTRATION_EMAILS = [
+    ('PPIS Registration Confirmation', 'registration_email_participant.html'),
+    ('PPIS Policy Innovation Challenge Registration Confirmation', 'registration_email_contestant.html'),
+]
+
+
+def send_registration_email(request, email):
+    """Sends both registration confirmation emails to `email`.
+    Returns True only if every email was sent, False otherwise."""
     try:
         validate_email(str(email))
         service = _build_service()
         if service is None:
             return False
 
-        message = MIMEMultipart()
-        message["From"] = SENDER
-        message["To"] = str(email)
-        message["Subject"] = "PPIS — Registration Successful"
-
-        scheme = "https" if request.is_secure() else "http"
-        ics_link = f"{scheme}://{request.get_host()}/media_files/event.ics"
-        message.attach(MIMEText(render_to_string('submission_email_template.html', {'participant_name': name, 'ics_link': ics_link}), 'html'))
-        _attach_file(message, os.path.join(settings.MEDIA_ROOT, 'event.ics'), 'PPIS2026.ics')
-
-        _send_message(service, message)
+        for subject, template in REGISTRATION_EMAILS:
+            message = MIMEMultipart()
+            message["From"] = SENDER
+            message["To"] = str(email)
+            message["Subject"] = subject
+            message.attach(MIMEText(render_to_string(template), 'html'))
+            _send_message(service, message)
     except Exception as e:
         log_exception(e, request)
         return False
@@ -213,7 +217,7 @@ def get_google_auth_flow(request):
             'project_id': settings.GOOGLE_CLOUD_PROJECT_ID,
             'auth_uri': settings.GOOGLE_CLOUD_AUTH_URI,
             'token_uri': settings.GOOGLE_CLOUD_TOKEN_URI,
-            'auth_provider_x509_cert_url': settings.GOOGLE_CLOUD_AUTH_PROVIDER_x509_cert_url,
+            'auth_provider_x509_cert_url': settings.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL,
             'client_secret': settings.GOOGLE_CLOUD_CLIENT_SECRET,
         }
     }
@@ -228,7 +232,7 @@ def get_google_auth_flow(request):
 
 
 def save_credentials(credentials):
-    env_path = str(settings.BASE_DIR / '.env')
+    env_path = str(settings.ENV_FILE)
     set_key(env_path, 'GOOGLE_CLOUD_TOKEN', credentials.token)
     settings.GOOGLE_CLOUD_TOKEN = credentials.token
     if credentials.refresh_token:
@@ -239,20 +243,33 @@ def save_credentials(credentials):
         settings.GOOGLE_CLOUD_EXPIRY = credentials.expiry.isoformat()
 
 
+def _stored_google_tokens():
+    """The Google tokens live in .env and are rewritten by the app, so .env is the source of truth.
+    Reading it here (instead of the process environment, which `load_dotenv` never refreshes) keeps every
+    worker and every auto-reload on the latest token."""
+    stored = dotenv_values(settings.ENV_FILE)
+    return {
+        'token': stored.get('GOOGLE_CLOUD_TOKEN') or settings.GOOGLE_CLOUD_TOKEN,
+        'refresh_token': stored.get('GOOGLE_CLOUD_REFRESH_TOKEN') or settings.GOOGLE_CLOUD_REFRESH_TOKEN,
+        'expiry': stored.get('GOOGLE_CLOUD_EXPIRY') or settings.GOOGLE_CLOUD_EXPIRY,
+    }
+
+
 def get_credentials():
     """Returns valid Google credentials (refreshing if needed), or None if re-authorisation is required."""
-    if not settings.GOOGLE_CLOUD_TOKEN:
+    tokens = _stored_google_tokens()
+    if not tokens['token']:
         return None
 
     info = {
-        'token': settings.GOOGLE_CLOUD_TOKEN,
-        'refresh_token': settings.GOOGLE_CLOUD_REFRESH_TOKEN,
+        'token': tokens['token'],
+        'refresh_token': tokens['refresh_token'],
         'token_uri': settings.GOOGLE_CLOUD_TOKEN_URI,
         'client_id': settings.GOOGLE_CLOUD_CLIENT_ID,
         'client_secret': settings.GOOGLE_CLOUD_CLIENT_SECRET,
     }
-    if settings.GOOGLE_CLOUD_EXPIRY:
-        info['expiry'] = settings.GOOGLE_CLOUD_EXPIRY
+    if tokens['expiry']:
+        info['expiry'] = tokens['expiry']
 
     try:
         creds = Credentials.from_authorized_user_info(info, scopes=settings.SCOPES)
@@ -267,7 +284,9 @@ def get_credentials():
             creds.refresh(Request())
             save_credentials(creds)
             return creds
-        except Exception:
+        except Exception as e:
+            # Usually 'invalid_grant': the refresh token expired or was revoked and needs re-authorising
+            log_exception(e)
             return None
 
     return None

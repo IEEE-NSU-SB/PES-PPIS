@@ -724,18 +724,6 @@
                 >
               </div>
             </div>
-            <div>
-              <label class="input_label"
-                >Bkash Transaction ID <span class="text-red-600">*</span></label
-              >
-              <input
-                type="text"
-                name="transaction_id"
-                class="input"
-                placeholder="Enter your Bkash transaction ID"
-                required
-              />
-            </div>
           </div>
 
           <div class="flex justify-between mt-6">
@@ -1162,19 +1150,6 @@
             </p>
           </div>
 
-          <div>
-            <label class="input_label"
-              >Bkash Transaction ID <span class="text-red-600">*</span></label
-            >
-            <input
-              type="text"
-              name="comp_transaction_id"
-              class="input"
-              placeholder="Enter your Bkash transaction ID"
-              required
-            />
-          </div>
-
           <div class="flex justify-between mt-6">
             <button type="button" class="back-btn" onclick="goToStep('3c')">
               ← Back
@@ -1374,13 +1349,11 @@
           case '4c': // Abstract + payment
             return [
               { name: 'abstract_file', label: 'Abstract / Concept Paper (PDF)' },
-              { name: 'comp_transaction_id', label: 'Bkash Transaction ID' },
             ];
 
           case '2p': // Participant payment
             return [
               { name: 'membership_type', label: 'IEEE Membership Status' },
-              { name: 'transaction_id', label: 'Bkash Transaction ID' },
             ];
 
           default:
@@ -1579,11 +1552,20 @@
           });
           const data = await resp.json();
           if (data.success) {
-            Swal.fire({
-              title: 'Registration Complete 🎉',
-              text: 'Thanks for registering! Check your email (Inbox/Spam) for confirmation.',
-              icon: 'success',
-            });
+            if (data.email_sent === false) {
+              // Saved, but the confirmation email failed: do not ask the user to register again
+              Swal.fire({
+                title: 'Registration Saved',
+                text: data.message,
+                icon: 'warning',
+              });
+            } else {
+              Swal.fire({
+                title: 'Registration Complete 🎉',
+                text: 'Thanks for registering! Check your email (Inbox/Spam) for confirmation.',
+                icon: 'success',
+              });
+            }
             this.reset();
             resetFileUI();
             updateMemberSections();

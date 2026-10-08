@@ -1,0 +1,23 @@
+{% extends "registration_email_base.html" %}
+{% block heading %}PPIS Registration Confirmation{% endblock %}
+{% block greeting %}Dear Participant,{% endblock %}
+{% block confirmation %}We are pleased to confirm that your registration for the <strong>Power Policy Innovation &amp; Summit (PPIS)</strong> has been successfully completed.{% endblock %}
+{% block event_details %}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e6e9ef;border-radius:6px;background:#fbfdff;margin:0 0 16px 0;">
+                <tr>
+                  <td style="padding:16px;">
+                    <h3 style="margin:0 0 8px 0;font-size:16px;">Event Details</h3>
+                    <p style="margin:6px 0;font-size:14px;"><strong>Event:</strong> Power Policy Innovation &amp; Summit (PPIS)</p>
+                    <p style="margin:6px 0;font-size:14px;"><strong>Dates:</strong> 31 October 2026</p>
+                    <p style="margin:6px 0 0 0;font-size:14px;"><strong>Venue:</strong> North South University</p>
+                  </td>
+                </tr>
+              </table>
+{% endblock %}
+{% block next_step_extra %}
+                <li style="margin-bottom:6px;">You will receive a final invitation email closer to the event date, including the complete program timeline and other details.</li>
+{% endblock %}
+{% block extra_note %}
+              <p style="margin:0 0 14px 0;">As a quick heads-up, there will also be a quiz competition with an exciting prize pool during the event that is open to all attendees, with no separate registration required.</p>
+{% endblock %}
+{% block closing %}We look forward to seeing you at PPIS!{% endblock %}

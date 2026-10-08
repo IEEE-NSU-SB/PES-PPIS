@@ -1,0 +1,44 @@
+<div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f6;padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+          <!-- Header -->
+          <tr>
+            <td style="background:#479A46;padding:20px 24px;color:#ffffff;">
+              <h1 style="margin:0;font-size:20px;line-height:1.3;text-align:center;">{% block heading %}{% endblock %}</h1>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:24px;color:#1f2937;font-size:15px;line-height:1.55;">
+              <p style="margin:0 0 14px 0;">{% block greeting %}{% endblock %}</p>
+              <p style="margin:0 0 14px 0;">Greetings from the IEEE NSU PES Student Branch Chapter!</p>
+              <p style="margin:0 0 14px 0;">{% block confirmation %}{% endblock %}</p>
+
+              {% block event_details %}{% endblock %}
+
+              <p style="margin:0 0 8px 0;"><strong>Next Steps:</strong></p>
+              <ul style="margin:0 0 14px 0;padding-left:22px;">
+                <li style="margin-bottom:6px;">Follow our official Facebook page, <a href="https://www.facebook.com/ieeensupes" style="color:#0b5ed7;">IEEE NSU PES Student Branch Chapter</a>, for further announcements, {% block updates_wording %}event updates{% endblock %}, and schedule releases.</li>
+                {% block next_step_extra %}{% endblock %}
+              </ul>
+
+              {% block extra_note %}{% endblock %}
+
+              <p style="margin:0 0 14px 0;">If you have any urgent questions in the meantime, please feel free to reach out directly to this email: <a href="mailto:ieeensu.pessbc@gmail.com" style="color:#0b5ed7;">ieeensu.pessbc@gmail.com</a></p>
+
+              <p style="margin:0 0 14px 0;">{% block closing %}{% endblock %}</p>
+
+              <p style="margin:18px 0 0 0;">
+                Best Regards,<br>
+                <strong>IEEE NSU PES Student Branch Chapter</strong>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>
