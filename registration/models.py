@@ -7,7 +7,8 @@ class EventFormStatus(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Event Form Status"
+        verbose_name = "Form status"
+        verbose_name_plural = "Form status"
 
     def __str__(self):
         return "Published" if self.is_published else "Unpublished"
@@ -34,9 +35,8 @@ class Form_Participant(models.Model):
         ('industry', 'Industry Professional'),
     ]
     TRACK_CHOICES = [
-        ('track_a', 'Track A: Grid Modernization, Smart Grids & Load-Shedding Mitigation'),
-        ('track_b', 'Track B: Renewable Integration, Energy Storage & Decarbonization'),
-        ('track_c', 'Track C: Energy Policy, FDI Frameworks & Market Restructuring'),
+        ('track_a', 'Track A: Irrigation, Community Village, EV Charging'),
+        ('track_b', 'Track B: Urban Community, Carbon Capture Modelling, Economically Feasible'),
     ]
     MEMBERSHIP_CHOICES = [
         ('ieee', 'IEEE Member'),
@@ -62,6 +62,7 @@ class Form_Participant(models.Model):
 
     # Participant payment
     membership_type = models.CharField(max_length=20, choices=MEMBERSHIP_CHOICES, blank=True, null=True)
+    transaction_id = models.CharField(max_length=100, blank=True, null=True)  # Bkash transaction ID (general participants)
 
     # Competition — team leader extra
     ieee_id = models.CharField(max_length=50, blank=True, null=True, default='')
@@ -97,7 +98,8 @@ class Form_Participant(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Form Participant"
+        verbose_name = "Registration"
+        verbose_name_plural = "Registrations"
 
     def __str__(self):
         return f"{self.name} — {self.get_registration_type_display()}"

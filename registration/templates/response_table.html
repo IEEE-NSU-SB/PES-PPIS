@@ -105,6 +105,7 @@
                 <th class="text-left py-3 px-4">Department</th>
                 <th class="text-left py-3 px-4">Email</th>
                 <th class="text-left py-3 px-4">Contact</th>
+                {% if has_perm.view_finance_info %}<th class="text-left py-3 px-4">Transaction ID</th>{% endif %}
                 {% if has_perm.delete_participant %}<th class="text-left py-3 px-4 rounded-tr-lg">Action</th>{% endif %}
               </tr>
             </thead>
@@ -117,6 +118,7 @@
                  <td class="py-3 px-4">{{p.get_department_display}}</td>
                  <td class="py-3 px-4 text-blue-600">{{p.email}}</td>
                  <td class="py-3 px-4">{{p.phone}}</td>
+                 {% if has_perm.view_finance_info %}<td class="py-3 px-4">{{p.transaction_id|default:"—"}}</td>{% endif %}
                  {% if has_perm.delete_participant %}
                  <td class="py-3 px-4">
                    <button type="button" class="delete-response rounded px-3 py-1 text-white bg-red-600 hover:bg-red-700 transition" data-id="{{p.id}}" data-name="{{p.name}}" data-url="{% url 'registration:delete_response' p.id %}">Delete</button>
@@ -125,7 +127,7 @@
                </tr>
               {% empty %}
                 <tr>
-                  <td colspan="7" class="text-center py-4 text-gray-500">No participants found.</td>
+                  <td colspan="8" class="text-center py-4 text-gray-500">No participants found.</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -210,33 +212,6 @@
                 <td class="py-2 px-4">{{ stats.non_ieee_count }}</td>
                 <td class="py-2 px-4">{{ stats.non_ieee_fee }}</td>
                 <td class="py-2 px-4">{{ stats.non_ieee_total }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <h3 class="text-lg font-semibold mb-2">Contestants (PPIS Policy Innovation Challenge)</h3>
-        <div class="overflow-x-auto mb-4">
-          <table class="table table-zebra w-full border">
-            <thead class="bg-[#122812] text-white">
-              <tr>
-                <th class="py-2 px-4 rounded-tl-lg">Membership Grade</th>
-                <th class="py-2 px-4">Count</th>
-                <th class="py-2 px-4">Amount</th>
-                <th class="py-2 px-4 rounded-tr-lg">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="py-2 px-4">IEEE Member</td>
-                <td class="py-2 px-4">{{ stats.comp_ieee_count }}</td>
-                <td class="py-2 px-4">{{ stats.comp_ieee_fee }}</td>
-                <td class="py-2 px-4">{{ stats.comp_ieee_total }}</td>
-              </tr>
-              <tr>
-                <td class="py-2 px-4">Non-IEEE Member</td>
-                <td class="py-2 px-4">{{ stats.comp_non_ieee_count }}</td>
-                <td class="py-2 px-4">{{ stats.comp_non_ieee_fee }}</td>
-                <td class="py-2 px-4">{{ stats.comp_non_ieee_total }}</td>
               </tr>
             </tbody>
           </table>

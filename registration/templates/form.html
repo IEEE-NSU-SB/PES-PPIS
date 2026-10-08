@@ -724,6 +724,18 @@
                 >
               </div>
             </div>
+            <div>
+              <label class="input_label"
+                >Bkash Transaction ID <span class="text-red-600">*</span></label
+              >
+              <input
+                type="text"
+                name="transaction_id"
+                class="input"
+                placeholder="Enter your Bkash transaction ID"
+                required
+              />
+            </div>
           </div>
 
           <div class="flex justify-between mt-6">
@@ -938,7 +950,7 @@
         </div>
 
         <!-- ══════════════════════════════════════════
-           STEP 3C — Project Track & Innovation
+           STEP 3C — Project Track, Innovation & Abstract
       ══════════════════════════════════════════ -->
         <div id="step3c" class="card-panel p-6 hidden">
           <div id="stepBar3c" class="step-bar mb-6"></div>
@@ -962,7 +974,7 @@
                 <label class="sdg-label">
                   <input type="radio" name="track" value="track_b" />
                   <div>
-                    <strong>Track B:</strong> Urban Community, Carbon Capture Modelling, Economically Feasable 
+                    <strong>Track B:</strong> Urban Community, Carbon Capture Modelling, Economically Feasible 
                   </div>
                 </label>
                 {% comment %} <label class="sdg-label">
@@ -1056,26 +1068,9 @@
             </div> {% endcomment %}
           </div>
 
-          <div class="flex justify-between mt-6">
-            <button type="button" class="back-btn" onclick="goToStep('2c')">
-              ← Back
-            </button>
-            <button
-              type="button"
-              class="continue-btn"
-              onclick="nextFromStep3c()"
-            >
-              Continue →
-            </button>
-          </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════
-           STEP 4C — Abstract Upload + Payment
-      ══════════════════════════════════════════ -->
-        <div id="step4c" class="card-panel p-6 hidden">
-          <div id="stepBar4c" class="step-bar mb-6"></div>
-        <h2 class="section_heading">Abstract Upload</h2>
+          <!-- Abstract upload (was step 5) -->
+          <div class="mt-8">
+          <h2 class="section_heading">Abstract Upload</h2>
 
 <!-- Abstract guidelines -->
 <div
@@ -1176,9 +1171,10 @@
               Team Registration Fee: <strong>BDT 2,500</strong>
             </p>
           </div> {% endcomment %}
+          </div>
 
           <div class="flex justify-between mt-6">
-            <button type="button" class="back-btn" onclick="goToStep('3c')">
+            <button type="button" class="back-btn" onclick="goToStep('2c')">
               ← Back
             </button>
             <button type="submit" id="submitBtnC" class="continue-btn">
@@ -1237,10 +1233,10 @@
 
       // ── Step definitions ──────────────────────────────────
       const PARTICIPANT_STEPS = ['0','1','2p'];
-      const COMPETITION_STEPS = ['0','1','2c','3c','4c'];
+      const COMPETITION_STEPS = ['0','1','2c','3c'];
       const STEP_LABELS = {
         participant: ['Type','Profile','Payment'],
-        competition: ['Type','Profile','Team','Project','Submit'],
+        competition: ['Type','Profile','Team','Project'],
       };
 
       function getSteps() { return regType === 'competition' ? COMPETITION_STEPS : PARTICIPANT_STEPS; }
@@ -1262,7 +1258,7 @@
       }
 
       // ── Show/hide step ─────────────────────────────────────
-      const ALL_STEPS = ['step0','step1','step2p','step2c','step3c','step4c'];
+      const ALL_STEPS = ['step0','step1','step2p','step2c','step3c'];
       function goToStep(step) {
         currentStep = String(step);
         ALL_STEPS.forEach(id => {
@@ -1275,7 +1271,7 @@
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         // Render step bars
-        ['stepBar1','stepBar2p','stepBar2c','stepBar3c','stepBar4c'].forEach(id => renderStepBar(id));
+        ['stepBar1','stepBar2p','stepBar2c','stepBar3c'].forEach(id => renderStepBar(id));
       }
 
       // ── Type selection ─────────────────────────────────────
@@ -1364,23 +1360,20 @@
             return fields;
           }
 
-          case '3c': // Project track & innovation
+          case '3c': // Project track, innovation & abstract
             return [
               { name: 'track', label: 'Selected Problem Track' },
               { name: 'project_title', label: 'Project / Proposal Title' },
               { name: 'problem_statement', label: 'Problem Statement', maxWords: MAX_WORDS },
               { name: 'proposed_solution', label: 'Proposed Solution Summary', maxWords: MAX_WORDS },
               { name: 'sdg_alignment', label: 'Targeted SDG Alignment' },
-            ];
-
-          case '4c': // Abstract + payment
-            return [
               { name: 'abstract_file', label: 'Abstract / Concept Paper (PDF)' },
             ];
 
           case '2p': // Participant payment
             return [
               { name: 'membership_type', label: 'IEEE Membership Status' },
+              { name: 'transaction_id', label: 'Bkash Transaction ID' },
             ];
 
           default:
@@ -1485,7 +1478,6 @@
       }
       function nextFromStep1()  { if (validateStep('1'))  goToStep(regType === 'competition' ? '2c' : '2p'); }
       function nextFromStep2c() { if (validateStep('2c')) goToStep('3c'); }
-      function nextFromStep3c() { if (validateStep('3c')) goToStep('4c'); }
 
       // ── File upload handler ────────────────────────────────
       function handleFileSelect(input) {
@@ -1552,7 +1544,7 @@
 
         // Re-validate every step of the chosen flow (protects against
         // skipping steps, e.g. pressing Enter in a text field).
-        const flow = regType === 'competition' ? ['1', '2c', '3c', '4c'] : ['1', '2p'];
+        const flow = regType === 'competition' ? ['1', '2c', '3c'] : ['1', '2p'];
         for (const s of flow) {
           if (collectErrors(s).length) {
             goToStep(s);

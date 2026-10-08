@@ -9,6 +9,7 @@ from django.core.validators import validate_email
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from django.db.models import Count, Min
 from django.db.models.functions import Lower, Trim
@@ -27,6 +28,7 @@ def _get_publish_status() -> bool:
     return bool(status and status.is_published)
 
 
+@never_cache
 def registration_form(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('registration:registration_admin')
@@ -45,6 +47,7 @@ def registration_form(request):
     return render(request, 'form.html', context)
 
 
+@never_cache
 @login_required
 @permission_required('reg_form_control')
 def registration_admin(request):
@@ -168,6 +171,9 @@ def submit_form(request):
         abstract = None
         if registration_type == 'participant':
             participant.membership_type = _post(request, 'membership_type')
+            participant.transaction_id = _post(request, 'transaction_id', 100)
+            if not participant.transaction_id:
+                errors.append('Bkash transaction ID is required.')
             if participant.membership_type not in _choice_values(Form_Participant.MEMBERSHIP_CHOICES):
                 errors.append('Please select a valid membership type.')
 
@@ -233,12 +239,12 @@ def submit_form(request):
             participant.abstract_file = filename
             participant.save(update_fields=['abstract_file'])
 
-        email_success = send_registration_email(request, participant.email)
+        email_success = send_registration_email(request, participant.email, registration_type)
 
         if registration_type == 'competition':
-            if participant.mem2_email and not send_registration_email(request, participant.mem2_email):
+            if participant.mem2_email and not send_registration_email(request, participant.mem2_email, registration_type):
                 email_success = False
-            if participant.mem3_email and not send_registration_email(request, participant.mem3_email):
+            if participant.mem3_email and not send_registration_email(request, participant.mem3_email, registration_type):
                 email_success = False
 
         message = f'Registration successful! Your registration ID is: {participant.id}'
@@ -284,6 +290,7 @@ def download_excel(request):
                 'Student ID': p.student_id,
                 'Study Level': p.get_study_level_display(),
                 'Membership': p.get_membership_type_display() if p.membership_type else '',
+                'Transaction ID': p.transaction_id,
                 'Ambassador Code': p.ambassador_code,
                 'Registered At': p.created_at.astimezone().strftime('%Y-%m-%d %H:%M:%S'),
             })
@@ -299,10 +306,15 @@ def download_excel(request):
                 'Study Level': p.get_study_level_display(),
                 'IEEE ID': p.ieee_id,
                 'Team Name': p.team_name,
-                'Total Members': p.total_members,
+                'Team of': p.total_members,
                 'Track': p.get_track_display() if p.track else '',
                 'Project Title': p.project_title,
-                'SDG Alignment': ', '.join(p.sdg_alignment) if p.sdg_alignment else '',
+                'Member 2': p.mem2_name,
+                'Member 2 Email': p.mem2_email,
+                'Member 2 Phone': p.mem2_phone,
+                'Member 3': p.mem3_name,
+                'Member 3 Email': p.mem3_email,
+                'Member 3 Phone': p.mem3_phone,
                 'Abstract File': p.abstract_file,
                 'Ambassador Code': p.ambassador_code,
                 'Registered At': p.created_at.astimezone().strftime('%Y-%m-%d %H:%M:%S'),
@@ -342,7 +354,6 @@ def response_table(request):
     stats = {}
     if permissions['view_finance_info']:
         fees = settings.REGISTRATION_FEES
-        comp_fees = settings.COMPETITION_FEES
         stats['participant_count'] = participants.filter(registration_type='participant').count()
         stats['competition_count'] = participants.filter(registration_type='competition').count()
 
@@ -354,18 +365,9 @@ def response_table(request):
         stats['ieee_total'] = stats['ieee_count'] * fees['ieee']
         stats['non_ieee_total'] = stats['non_ieee_count'] * fees['non_ieee']
 
-        # Contestant teams: an IEEE member is a team leader who gave an IEEE ID
-        comp = participants.filter(registration_type='competition')
-        stats['comp_ieee_fee'] = comp_fees['ieee']
-        stats['comp_non_ieee_fee'] = comp_fees['non_ieee']
-        stats['comp_ieee_count'] = comp.exclude(ieee_id__isnull=True).exclude(ieee_id='').count()
-        stats['comp_non_ieee_count'] = stats['competition_count'] - stats['comp_ieee_count']
-        stats['comp_ieee_total'] = stats['comp_ieee_count'] * comp_fees['ieee']
-        stats['comp_non_ieee_total'] = stats['comp_non_ieee_count'] * comp_fees['non_ieee']
-
         stats['total_count'] = stats['participant_count'] + stats['competition_count']
-        stats['total_amount'] = (stats['ieee_total'] + stats['non_ieee_total']
-                                 + stats['comp_ieee_total'] + stats['comp_non_ieee_total'])
+        # Contestants do not pay for now, so the amount only covers general participants
+        stats['total_amount'] = stats['ieee_total'] + stats['non_ieee_total']
 
         # Group universities ignoring case and surrounding spaces
         university_data = (
@@ -396,7 +398,11 @@ def response_table(request):
 @permission_required('view_reg_response')
 def view_response(request, id):
     participant = get_object_or_404(Form_Participant, id=id)
-    return render(request, 'participant_response.html', {'participant': participant})
+    context = {
+        'participant': participant,
+        'has_perm': {'view_finance_info': Site_Permissions.user_has_permission(request.user, 'view_finance_info')},
+    }
+    return render(request, 'participant_response.html', context)
 
 
 @login_required

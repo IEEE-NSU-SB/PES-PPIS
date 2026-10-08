@@ -13,5 +13,5 @@ def log_exception(exception, request=None):
             message=str(exception),
             traceback=tb
         )
-    except:
+    except Exception:
         pass

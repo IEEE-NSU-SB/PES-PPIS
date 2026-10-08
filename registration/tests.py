@@ -22,6 +22,7 @@ def participant_payload(**overrides):
         'student_id': '2021-1234',
         'study_level': 'undergrad',
         'membership_type': 'non_ieee',
+        'transaction_id': 'TX-123',
     }
     data.update(overrides)
     return data
@@ -38,6 +39,7 @@ def competition_payload(**overrides):
         proposed_solution='s',
     )
     data.pop('membership_type')
+    data.pop('transaction_id')
     data.update(overrides)
     return data
 
@@ -72,7 +74,7 @@ class SubmitFormTests(TestCase):
     def test_successful_participant_registration(self):
         response = self.client.post(self.url, participant_payload())
         self.assertTrue(response.json()['success'])
-        self.mock_email.assert_called_once_with(response.wsgi_request, 'test@example.com')
+        self.mock_email.assert_called_once_with(response.wsgi_request, 'test@example.com', 'participant')
         self.assertEqual(Form_Participant.objects.count(), 1)
 
     def test_closed_registration_is_rejected(self):
@@ -172,10 +174,12 @@ class TeamEmailTests(TestCase):
             mem2_name='Mate Two', mem2_email='m2@example.com',
             mem3_name='Mate Three', mem3_email='m3@example.com')
         with patch('registration.views.send_registration_email',
-                   side_effect=lambda r, email: sent.append(email) or True):
+                   side_effect=lambda r, email, reg_type: sent.append((email, reg_type)) or True):
             response = self.client.post(reverse('registration:submit_form'), payload)
         self.assertTrue(response.json()['success'], response.json())
-        self.assertEqual(sent, ['leader@example.com', 'm2@example.com', 'm3@example.com'])
+        self.assertEqual(sent, [('leader@example.com', 'competition'),
+                                ('m2@example.com', 'competition'),
+                                ('m3@example.com', 'competition')])
 
 
 class ResponseTablePageTests(TestCase):
@@ -206,7 +210,7 @@ class ResponseTablePageTests(TestCase):
         stats = response.context['stats']
         self.assertEqual((stats['ieee_count'], stats['non_ieee_count']), (1, 2))
         self.assertEqual((stats['ieee_total'], stats['non_ieee_total']), (600, 1500))
-        self.assertEqual(stats['total_amount'], 600 + 1500 + 2500)
+        self.assertEqual(stats['total_amount'], 600 + 1500)
         self.assertEqual((stats['participant_count'], stats['competition_count'], stats['total_count']), (3, 1, 4))
 
     def test_universities_grouped_ignoring_case_and_spaces(self):
@@ -224,7 +228,7 @@ class ResponseTablePageTests(TestCase):
     def test_stats_hidden_without_finance_permission(self):
         from access_ctrl.models import Permission, UserPermission
         user = User.objects.create_user('viewer', password='pw')
-        perm = Permission.objects.create(name='list', codename='view_reg_responses_list')
+        perm = Permission.objects.get(codename='view_reg_responses_list')
         UserPermission.objects.create(user=user).permissions.add(perm)
         self.client.force_login(user)
         response = self.client.get(reverse('registration:response_table'))
@@ -240,7 +244,7 @@ class ResponseTabsTests(TestCase):
         base = dict(email='x@x.co', phone='+8801711111111', university='U', department='cs',
                     student_id='1', study_level='undergrad')
         Form_Participant.objects.create(registration_type='participant', name='Pat', membership_type='ieee',
-                                        **{**base, 'email': 'p@x.co'})
+                                        transaction_id='TXN-P', **{**base, 'email': 'p@x.co'})
         Form_Participant.objects.create(registration_type='competition', name='Lead', team_name='Volt', total_members='3',
                                         ieee_id='IEEE-99', track='track_b',
                                         **{**base, 'email': 'c1@x.co'})
@@ -260,28 +264,140 @@ class ResponseTabsTests(TestCase):
         for text in ('IEEE-99', 'IEEE ID', 'Team of'):
             self.assertContains(response, text)
 
-    def test_no_transaction_id_anywhere(self):
+    def test_transaction_id_column_is_only_on_the_participants_tab(self):
         response = self.client.get(reverse('registration:response_table'))
+        html = response.content.decode()
+        participants_panel = html[html.index('id="panel-participants"'):html.index('id="panel-contestants"')]
+        contestants_panel = html[html.index('id="panel-contestants"'):html.index('<!-- Modal -->')]
+        self.assertIn('Transaction ID', participants_panel)
+        self.assertNotIn('Transaction ID', contestants_panel)
+        self.assertIn('TXN-P', participants_panel)
+
+    def test_transaction_id_hidden_without_finance_permission(self):
+        from access_ctrl.models import Permission, UserPermission
+        user = User.objects.create_user('viewer', password='pw')
+        perm = Permission.objects.get(codename='view_reg_responses_list')
+        UserPermission.objects.create(user=user).permissions.add(perm)
+        self.client.force_login(user)
+        response = self.client.get(reverse('registration:response_table'))
+        self.assertNotContains(response, 'TXN-P')
         self.assertNotContains(response, 'Transaction ID')
-        self.assertFalse(hasattr(Form_Participant, 'transaction_id'))
-        self.assertFalse(hasattr(Form_Participant, 'comp_transaction_id'))
+
+
+class ParticipantTransactionIdTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        EventFormStatus.objects.create(is_published=True)
+        patcher = patch('registration.views.send_registration_email', return_value=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.url = reverse('registration:submit_form')
+
+    def test_participant_must_give_a_transaction_id(self):
+        response = self.client.post(self.url, participant_payload(transaction_id='  '))
+        self.assertFalse(response.json()['success'])
+        self.assertIn('transaction', response.json()['message'].lower())
+        self.assertEqual(Form_Participant.objects.count(), 0)
+
+    def test_transaction_id_is_saved_and_trimmed(self):
+        response = self.client.post(self.url, participant_payload(transaction_id=' ABC123 '))
+        self.assertTrue(response.json()['success'])
+        self.assertEqual(Form_Participant.objects.get().transaction_id, 'ABC123')
+
+    def test_competition_does_not_need_one(self):
+        self.assertTrue(self.client.post(self.url, competition_payload()).json()['success'])
+        self.assertFalse(Form_Participant.objects.get().transaction_id)
+
+    def test_form_has_the_input_for_participants_only(self):
+        html = self.client.get('/').content.decode()
+        step_p = html[html.index('id="step2p"'):html.index('id="step2c"')]
+        step_c = html[html.index('id="step2c"'):]
+        self.assertEqual(step_p.count('name="transaction_id"'), 1)
+        self.assertNotIn('name="transaction_id"', step_c)
+        self.assertIn("{ name: 'transaction_id', label: 'Bkash Transaction ID' }", html)
+
+    def test_excel_export_has_the_column(self):
+        from io import BytesIO
+        import pandas as pd
+        Form_Participant.objects.create(registration_type='participant', name='P', email='p@x.co', phone='1',
+                                        university='U', department='cs', student_id='1', study_level='undergrad',
+                                        membership_type='ieee', transaction_id='TXN-X')
+        self.client.force_login(User.objects.create_superuser('root', password='pw'))
+        df = pd.read_excel(BytesIO(self.client.get(reverse('registration:download_excel')).content),
+                           sheet_name='Participants')
+        self.assertEqual(df['Transaction ID'][0], 'TXN-X')
+
+    def test_detail_page_shows_it_only_with_finance_permission(self):
+        from access_ctrl.models import Permission, UserPermission
+        p = Form_Participant.objects.create(registration_type='participant', name='P', email='p@x.co', phone='1',
+                                            university='U', department='cs', student_id='1',
+                                            study_level='undergrad', membership_type='ieee', transaction_id='TXN-D')
+        user = User.objects.create_user('viewer', password='pw')
+        up = UserPermission.objects.create(user=user)
+        up.permissions.add(Permission.objects.get(codename='view_reg_response'))
+        self.client.force_login(user)
+        url = reverse('registration:view_response', args=[p.id])
+        self.assertNotContains(self.client.get(url), 'TXN-D')
+        up.permissions.add(Permission.objects.get(codename='view_finance_info'))
+        self.assertContains(self.client.get(url), 'TXN-D')
 
 
 class StatisticsLayoutTests(TestCase):
-    def test_contestant_table_and_totals(self):
+    def test_only_participants_are_charged(self):
         admin = User.objects.create_superuser('root', password='pw')
         self.client.force_login(admin)
         base = dict(phone='1', university='U', department='cs', student_id='1', study_level='undergrad')
         Form_Participant.objects.create(registration_type='participant', name='P', email='p@x.co', membership_type='ieee', **base)
         Form_Participant.objects.create(registration_type='competition', name='L1', email='l1@x.co', ieee_id='I-1', **base)
-        Form_Participant.objects.create(registration_type='competition', name='L2', email='l2@x.co', ieee_id='', **base)
-        Form_Participant.objects.create(registration_type='competition', name='L3', email='l3@x.co', **base)
-        with override_settings(COMPETITION_FEES={'ieee': 1000, 'non_ieee': 1500}):
-            response = self.client.get(reverse('registration:response_table'))
+        Form_Participant.objects.create(registration_type='competition', name='L2', email='l2@x.co', **base)
+        response = self.client.get(reverse('registration:response_table'))
         stats = response.context['stats']
-        self.assertEqual((stats['comp_ieee_count'], stats['comp_non_ieee_count']), (1, 2))
-        self.assertEqual((stats['comp_ieee_total'], stats['comp_non_ieee_total']), (1000, 3000))
-        self.assertEqual(stats['total_amount'], 600 + 1000 + 3000)
-        self.assertEqual(stats['total_count'], 4)
-        self.assertContains(response, 'Contestants (PPIS Policy Innovation Challenge)')
+        self.assertEqual(stats['total_amount'], 600)           # contestants add nothing
+        self.assertEqual(stats['total_count'], 3)               # but they are still registrations
+        self.assertEqual(stats['competition_count'], 2)
+        self.assertNotIn('comp_ieee_count', stats)
+        self.assertNotContains(response, 'Contestants (PPIS Policy Innovation Challenge)')
         self.assertContains(response, 'Total Registration:')
+
+
+class TrackAndFormFieldTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        EventFormStatus.objects.create(is_published=True)
+        patcher = patch('registration.views.send_registration_email', return_value=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def submit(self, **overrides):
+        payload = competition_payload(**overrides)
+        for key in ('problem_statement', 'proposed_solution'):
+            payload.pop(key, None)  # the form no longer sends these
+        return self.client.post(reverse('registration:submit_form'), payload).json()
+
+    def test_new_tracks_accepted_and_removed_track_rejected(self):
+        self.assertTrue(self.submit(track='track_a', email='a@x.co')['success'])
+        self.assertTrue(self.submit(track='track_b', email='b@x.co')['success'])
+        self.assertFalse(self.submit(track='track_c', email='c@x.co')['success'])
+
+    def test_registration_works_without_problem_statement_solution_or_sdg(self):
+        self.assertTrue(self.submit(email='d@x.co')['success'])
+        participant = Form_Participant.objects.get(email='d@x.co')
+        self.assertFalse(participant.problem_statement)
+        self.assertEqual(participant.sdg_alignment, [])
+
+    def test_track_labels(self):
+        labels = dict(Form_Participant.TRACK_CHOICES)
+        self.assertEqual(labels['track_a'], 'Track A: Irrigation, Community Village, EV Charging')
+        self.assertIn('Economically Feasible', labels['track_b'])
+        self.assertNotIn('track_c', labels)
+
+    def test_detail_page_hides_unused_fields(self):
+        admin = User.objects.create_superuser('root', password='pw')
+        self.client.force_login(admin)
+        self.submit(email='e@x.co')
+        participant = Form_Participant.objects.get(email='e@x.co')
+        response = self.client.get(reverse('registration:view_response', args=[participant.id]))
+        self.assertNotContains(response, 'Problem Statement')
+        self.assertNotContains(response, 'Proposed Solution')
+        self.assertNotContains(response, 'SDG Alignment')
+        self.assertContains(response, 'Track A: Irrigation, Community Village, EV Charging')

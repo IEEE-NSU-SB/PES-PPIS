@@ -159,7 +159,7 @@ class DeleteParticipantTests(TestCase):
         self.assertEqual(self.client.get('/api/delete_participant/').status_code, 405)
 
     def test_granted_permission_allows_delete(self):
-        perm = Permission.objects.create(name='Delete', codename='delete_participant')
+        perm = Permission.objects.get(codename='delete_participant')
         UserPermission.objects.create(user=self.user).permissions.add(perm)
         self.client.force_login(self.user)
         response = self.client.post('/api/delete_participant/', json.dumps({'participant_id': self.reg.id}),
@@ -178,8 +178,8 @@ class DeleteParticipantTests(TestCase):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get('/registration/responses/'), 'Delete</button>')
         self.assertContains(self.client.get('/dashboard/'), 'delete_participant')
-        perm = Permission.objects.create(name='V', codename='view_reg_responses_list')
-        perm2 = Permission.objects.create(name='D', codename='view_qr_dashboard')
+        perm = Permission.objects.get(codename='view_reg_responses_list')
+        perm2 = Permission.objects.get(codename='view_qr_dashboard')
         up = UserPermission.objects.create(user=self.user)
         up.permissions.add(perm, perm2)
         self.client.force_login(self.user)

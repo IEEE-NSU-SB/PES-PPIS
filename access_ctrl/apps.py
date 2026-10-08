@@ -5,6 +5,8 @@ from django.contrib.auth.apps import AuthConfig as BaseAuthConfig
 class AccessCtrlConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'access_ctrl'
+    verbose_name = 'Access Control'
+    default = True
 
 class CustomAuthConfig(BaseAuthConfig):
     verbose_name = "User Management"

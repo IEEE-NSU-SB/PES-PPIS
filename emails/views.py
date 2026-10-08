@@ -134,29 +134,29 @@ def send_email(request):
     return JsonResponse({'message': 'success'})
 
 
-# Every registrant receives both of these confirmation emails, in this order: (subject, template)
-REGISTRATION_EMAILS = [
-    ('PPIS Registration Confirmation', 'registration_email_participant.html'),
-    ('PPIS Policy Innovation Challenge Registration Confirmation', 'registration_email_contestant.html'),
-]
+# One confirmation email per registration, chosen by registration type: type -> (subject, template)
+REGISTRATION_EMAILS = {
+    'participant': ('PPIS Registration Confirmation', 'registration_email_participant.html'),
+    'competition': ('PPIS Policy Innovation Challenge Registration Confirmation', 'registration_email_contestant.html'),
+}
 
 
-def send_registration_email(request, email):
-    """Sends both registration confirmation emails to `email`.
-    Returns True only if every email was sent, False otherwise."""
+def send_registration_email(request, email, registration_type):
+    """Sends the confirmation email for a registration type ('participant' or 'competition').
+    Returns True on success, False otherwise."""
     try:
+        subject, template = REGISTRATION_EMAILS[registration_type]
         validate_email(str(email))
         service = _build_service()
         if service is None:
             return False
 
-        for subject, template in REGISTRATION_EMAILS:
-            message = MIMEMultipart()
-            message["From"] = SENDER
-            message["To"] = str(email)
-            message["Subject"] = subject
-            message.attach(MIMEText(render_to_string(template), 'html'))
-            _send_message(service, message)
+        message = MIMEMultipart()
+        message["From"] = SENDER
+        message["To"] = str(email)
+        message["Subject"] = subject
+        message.attach(MIMEText(render_to_string(template), 'html'))
+        _send_message(service, message)
     except Exception as e:
         log_exception(e, request)
         return False

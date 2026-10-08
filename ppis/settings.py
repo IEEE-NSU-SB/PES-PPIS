@@ -198,6 +198,3 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
 
 # Registration fee per participant (BDT), used by the statistics on the responses page
 REGISTRATION_FEES = {'ieee': 600, 'non_ieee': 750}
-
-# Fee per contestant team (BDT). It is a flat team fee, so it is the same for IEEE and non-IEEE team leaders.
-COMPETITION_FEES = {'ieee': 2500, 'non_ieee': 2500}

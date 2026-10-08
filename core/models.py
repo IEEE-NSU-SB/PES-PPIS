@@ -1,5 +1,4 @@
 from django.db import models
-from django.contrib.auth.models import User
 
 # Create your models here.
 class Registered_Participant(models.Model):
@@ -18,7 +17,7 @@ class Registered_Participant(models.Model):
         verbose_name="Registered Participant"
 
     def __str__(self):
-        return str(self.pk)
+        return f'{self.name} (#{self.pk})'
 
 class Token_Session(models.Model):
     '''This model contatins the token session data\n
@@ -45,7 +44,7 @@ class Token_Session(models.Model):
     #     super().save(*args, **kwargs)
 
     def __str__(self):
-        return str(self.pk)
+        return self.session_name
 
 class Token_Participant(models.Model):
     '''This model stores the relation between token_session and registered_participant.\n
@@ -62,7 +61,7 @@ class Token_Participant(models.Model):
         verbose_name="Applied Participant Token"
 
     def __str__(self) -> str:
-        return str(self.pk)
+        return f'{self.registered_participant} - {self.token_session}'
 
 
 # class User_Permission(models.Model):

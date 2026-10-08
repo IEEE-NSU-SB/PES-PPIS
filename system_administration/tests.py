@@ -32,7 +32,7 @@ class ProtectedServeTests(TestCase):
         self.admin = User.objects.create_superuser('root', password='pw')
 
     def grant(self, codename):
-        perm = Permission.objects.create(name=codename, codename=codename)
+        perm = Permission.objects.get(codename=codename)
         up = UserPermission.objects.create(user=self.user)
         up.permissions.add(perm)
 

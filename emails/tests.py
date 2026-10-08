@@ -34,45 +34,54 @@ class SendRegistrationEmailTests(TestCase):
 
     def test_returns_false_when_reauthorisation_needed(self):
         with patch.object(views, 'get_credentials', return_value=None):
-            self.assertIs(views.send_registration_email(self.request, 'a@example.com'), False)
+            self.assertIs(views.send_registration_email(self.request, 'a@example.com', 'participant'), False)
 
     def test_returns_false_for_invalid_address(self):
-        self.assertIs(views.send_registration_email(self.request, 'bad\nBcc: x@y.z'), False)
+        self.assertIs(views.send_registration_email(self.request, 'bad\nBcc: x@y.z', 'participant'), False)
 
-    def test_registrant_gets_both_emails(self):
+    def send_and_read(self, registration_type):
         import base64
         from email import message_from_bytes
         service = MagicMock()
         with patch.object(views, '_build_service', return_value=service):
-            self.assertIs(views.send_registration_email(self.request, 'a@example.com'), True)
-
+            self.assertIs(views.send_registration_email(self.request, 'a@example.com', registration_type), True)
         calls = service.users().messages().send.call_args_list
-        self.assertEqual(len(calls), 2)
         messages = [message_from_bytes(base64.urlsafe_b64decode(c.kwargs['body']['raw'])) for c in calls]
-        self.assertEqual([m['Subject'] for m in messages], [
-            'PPIS Registration Confirmation',
-            'PPIS Policy Innovation Challenge Registration Confirmation',
-        ])
         bodies = [m.get_payload()[0].get_payload(decode=True).decode() for m in messages]
+        return messages, bodies
+
+    def test_participant_gets_only_the_participant_email(self):
+        messages, bodies = self.send_and_read('participant')
+        self.assertEqual(len(messages), 1)  # exactly one email
+        self.assertEqual(messages[0]['Subject'], 'PPIS Registration Confirmation')
+        self.assertEqual(messages[0]['To'], 'a@example.com')
         self.assertIn('Dear Participant,', bodies[0])
         self.assertIn('31 October 2026', bodies[0])
         self.assertIn('quiz competition', bodies[0])
-        self.assertIn('Dear Innovator,', bodies[1])
-        self.assertIn('complete competition guidelines', bodies[1])
-        for message, body in zip(messages, bodies):
-            self.assertEqual(message['To'], 'a@example.com')
-            self.assertIn('ieeensu.pessbc@gmail.com', body)
-            self.assertEqual(len(message.get_payload()), 1)  # no attachments
+        self.assertNotIn('Dear Innovator', bodies[0])
+        self.assertIn('ieeensu.pessbc@gmail.com', bodies[0])
+        self.assertEqual(len(messages[0].get_payload()), 1)  # no attachments
 
-    def test_returns_false_if_second_email_fails(self):
+    def test_competitor_gets_only_the_innovator_email(self):
+        messages, bodies = self.send_and_read('competition')
+        self.assertEqual(len(messages), 1)  # exactly one email
+        self.assertEqual(messages[0]['Subject'], 'PPIS Policy Innovation Challenge Registration Confirmation')
+        self.assertIn('Dear Innovator,', bodies[0])
+        self.assertIn('complete competition guidelines', bodies[0])
+        self.assertNotIn('Dear Participant', bodies[0])
+        self.assertNotIn('quiz competition', bodies[0])
+        self.assertIn('ieeensu.pessbc@gmail.com', bodies[0])
+        self.assertEqual(len(messages[0].get_payload()), 1)  # no attachments
+
+    def test_unknown_registration_type_sends_nothing(self):
         service = MagicMock()
-        service.users().messages().send().execute.side_effect = [{'id': '1'}, RuntimeError('boom')]
         with patch.object(views, '_build_service', return_value=service):
-            self.assertIs(views.send_registration_email(self.request, 'a@example.com'), False)
+            self.assertIs(views.send_registration_email(self.request, 'a@example.com', 'bogus'), False)
+        service.users().messages().send.assert_not_called()
 
     def test_returns_false_when_gmail_fails(self):
         with patch.object(views, '_build_service', side_effect=RuntimeError('boom')):
-            self.assertIs(views.send_registration_email(self.request, 'a@example.com'), False)
+            self.assertIs(views.send_registration_email(self.request, 'a@example.com', 'participant'), False)
 
     def test_bundled_ics_exists_in_media_root(self):
         from django.conf import settings
