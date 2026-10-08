@@ -175,9 +175,14 @@ GOOGLE_CLOUD_CLIENT_ID = os.environ.get('DEV_GOOGLE_CLOUD_CLIENT_ID')
 GOOGLE_CLOUD_PROJECT_ID = os.environ.get('DEV_GOOGLE_CLOUD_PROJECT_ID')
 GOOGLE_CLOUD_AUTH_URI = os.environ.get('DEV_GOOGLE_CLOUD_AUTH_URI')
 GOOGLE_CLOUD_TOKEN_URI = os.environ.get('DEV_GOOGLE_CLOUD_TOKEN_URI')
-GOOGLE_CLOUD_AUTH_PROVIDER_x509_cert_url = os.environ.get('DEV_GOOGLE_CLOUD_AUTH_PROVIDER_x509_cert_url')
+# Django only treats ALL-CAPS names as settings, so this one is upper-case (the env var keeps its original spelling)
+GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL = (os.environ.get('DEV_GOOGLE_CLOUD_AUTH_PROVIDER_x509_cert_url')
+                                            or os.environ.get('DEV_GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL'))
 GOOGLE_CLOUD_CLIENT_SECRET = os.environ.get('DEV_GOOGLE_CLOUD_CLIENT_SECRET')
 SCOPES = [x.strip() for x in os.environ.get('DEV_SCOPES', '').split(',') if x.strip()]
+
+# The app stores the Gmail tokens here (see emails/views.py)
+ENV_FILE = BASE_DIR / '.env'
 
 GOOGLE_MAIL_API_NAME = os.environ.get('GOOGLE_MAIL_API_NAME')
 GOOGLE_MAIL_API_VERSION = os.environ.get('GOOGLE_MAIL_API_VERSION')

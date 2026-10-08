@@ -168,7 +168,6 @@ def submit_form(request):
         abstract = None
         if registration_type == 'participant':
             participant.membership_type = _post(request, 'membership_type')
-            participant.transaction_id = _post(request, 'transaction_id', 100)
             if participant.membership_type not in _choice_values(Form_Participant.MEMBERSHIP_CHOICES):
                 errors.append('Please select a valid membership type.')
 
@@ -197,7 +196,6 @@ def submit_form(request):
             participant.proposed_solution = _post(request, 'proposed_solution', 5000)
             valid_sdgs = ('SDG 7', 'SDG 9', 'SDG 11', 'SDG 13')
             participant.sdg_alignment = [x for x in request.POST.getlist('sdg_alignment') if x in valid_sdgs]
-            participant.comp_transaction_id = _post(request, 'comp_transaction_id', 100)
 
             if not participant.team_name:
                 errors.append('Team name is required.')
@@ -235,24 +233,22 @@ def submit_form(request):
             participant.abstract_file = filename
             participant.save(update_fields=['abstract_file'])
 
-        email_success = send_registration_email(request, participant.name, participant.email)
+        email_success = send_registration_email(request, participant.email)
 
         if registration_type == 'competition':
-            if participant.mem2_email and not send_registration_email(request, participant.mem2_name or 'Team Member', participant.mem2_email):
+            if participant.mem2_email and not send_registration_email(request, participant.mem2_email):
                 email_success = False
-            if participant.mem3_email and not send_registration_email(request, participant.mem3_name or 'Team Member', participant.mem3_email):
+            if participant.mem3_email and not send_registration_email(request, participant.mem3_email):
                 email_success = False
 
+        message = f'Registration successful! Your registration ID is: {participant.id}'
         if not email_success:
-            return JsonResponse({
-                'success': False,
-                'message': 'Registration was saved, but the confirmation email could not be sent. Please contact the organizers.',
-                'participant_id': participant.id,
-            })
+            message += '. However, the confirmation email could not be sent. Please contact the organizers.'
 
         return JsonResponse({
             'success': True,
-            'message': f'Registration successful! Your registration ID is: {participant.id}',
+            'email_sent': email_success,
+            'message': message,
             'participant_id': participant.id,
         })
 
@@ -288,7 +284,6 @@ def download_excel(request):
                 'Student ID': p.student_id,
                 'Study Level': p.get_study_level_display(),
                 'Membership': p.get_membership_type_display() if p.membership_type else '',
-                'Transaction ID': p.transaction_id,
                 'Ambassador Code': p.ambassador_code,
                 'Registered At': p.created_at.astimezone().strftime('%Y-%m-%d %H:%M:%S'),
             })
@@ -309,7 +304,6 @@ def download_excel(request):
                 'Project Title': p.project_title,
                 'SDG Alignment': ', '.join(p.sdg_alignment) if p.sdg_alignment else '',
                 'Abstract File': p.abstract_file,
-                'Transaction ID': p.comp_transaction_id,
                 'Ambassador Code': p.ambassador_code,
                 'Registered At': p.created_at.astimezone().strftime('%Y-%m-%d %H:%M:%S'),
             })
@@ -402,11 +396,7 @@ def response_table(request):
 @permission_required('view_reg_response')
 def view_response(request, id):
     participant = get_object_or_404(Form_Participant, id=id)
-    context = {
-        'participant': participant,
-        'has_perm': {'view_finance_info': Site_Permissions.user_has_permission(request.user, 'view_finance_info')},
-    }
-    return render(request, 'participant_response.html', context)
+    return render(request, 'participant_response.html', {'participant': participant})
 
 
 @login_required

@@ -93,12 +93,6 @@
             <span class="field-label">Membership Type</span>
             <div class="field-value">{{ participant.get_membership_type_display|default:"—" }}</div>
           </div>
-          {% if has_perm.view_finance_info %}
-          <div>
-            <span class="field-label">Transaction ID</span>
-            <div class="field-value">{{ participant.transaction_id|default:"—" }}</div>
-          </div>
-          {% endif %}
         </div>
       </div>
       {% endif %}
@@ -187,17 +181,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Competition Payment -->
-      {% if has_perm.view_finance_info %}
-      <div class="card">
-        <div class="section-title">Competition Payment</div>
-        <div>
-          <span class="field-label">Transaction ID</span>
-          <div class="field-value">{{ participant.comp_transaction_id|default:"—" }}</div>
-        </div>
-      </div>
-      {% endif %}
       {% endif %}
 
     </div>

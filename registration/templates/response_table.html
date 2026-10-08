@@ -105,7 +105,6 @@
                 <th class="text-left py-3 px-4">Department</th>
                 <th class="text-left py-3 px-4">Email</th>
                 <th class="text-left py-3 px-4">Contact</th>
-                {% if has_perm.view_finance_info %}<th class="text-left py-3 px-4">Transaction ID</th>{% endif %}
                 {% if has_perm.delete_participant %}<th class="text-left py-3 px-4 rounded-tr-lg">Action</th>{% endif %}
               </tr>
             </thead>
@@ -118,7 +117,6 @@
                  <td class="py-3 px-4">{{p.get_department_display}}</td>
                  <td class="py-3 px-4 text-blue-600">{{p.email}}</td>
                  <td class="py-3 px-4">{{p.phone}}</td>
-                 {% if has_perm.view_finance_info %}<td class="py-3 px-4">{{p.transaction_id|default:"—"}}</td>{% endif %}
                  {% if has_perm.delete_participant %}
                  <td class="py-3 px-4">
                    <button type="button" class="delete-response rounded px-3 py-1 text-white bg-red-600 hover:bg-red-700 transition" data-id="{{p.id}}" data-name="{{p.name}}" data-url="{% url 'registration:delete_response' p.id %}">Delete</button>
@@ -127,7 +125,7 @@
                </tr>
               {% empty %}
                 <tr>
-                  <td colspan="8" class="text-center py-4 text-gray-500">No participants found.</td>
+                  <td colspan="7" class="text-center py-4 text-gray-500">No participants found.</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -147,7 +145,6 @@
                 <th class="text-left py-3 px-4">Contact</th>
                 <th class="text-left py-3 px-4">IEEE ID</th>
                 <th class="text-left py-3 px-4">Team of</th>
-                {% if has_perm.view_finance_info %}<th class="text-left py-3 px-4">Transaction ID</th>{% endif %}
                 {% if has_perm.delete_participant %}<th class="text-left py-3 px-4 rounded-tr-lg">Action</th>{% endif %}
               </tr>
             </thead>
@@ -162,7 +159,6 @@
                  <td class="py-3 px-4">{{p.phone}}</td>
                  <td class="py-3 px-4">{{p.ieee_id|default:"—"}}</td>
                  <td class="py-3 px-4">{{p.total_members|default:"—"}}</td>
-                 {% if has_perm.view_finance_info %}<td class="py-3 px-4">{{p.comp_transaction_id|default:"—"}}</td>{% endif %}
                  {% if has_perm.delete_participant %}
                  <td class="py-3 px-4">
                    <button type="button" class="delete-response rounded px-3 py-1 text-white bg-red-600 hover:bg-red-700 transition" data-id="{{p.id}}" data-name="{{p.name}}" data-url="{% url 'registration:delete_response' p.id %}">Delete</button>
@@ -171,7 +167,7 @@
                </tr>
               {% empty %}
                 <tr>
-                  <td colspan="10" class="text-center py-4 text-gray-500">No contestants found.</td>
+                  <td colspan="9" class="text-center py-4 text-gray-500">No contestants found.</td>
                 </tr>
               {% endfor %}
             </tbody>
