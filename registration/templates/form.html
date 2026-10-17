@@ -1412,7 +1412,6 @@
         regType = type;
         document.getElementById('reg_type_input').value = type;
         document.getElementById('card-participant').classList.toggle('selected', type === 'participant');
-        document.getElementById('card-competition').classList.toggle('selected', type === 'competition');
         document.getElementById('step0Next').disabled = false;
         // Show/hide IEEE ID field
         const ieeeField = document.getElementById('ieee_id_field');
