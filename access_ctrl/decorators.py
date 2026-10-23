@@ -17,7 +17,7 @@ def permission_required(codename, obj=None):
             # obj_instance = kwargs.get(obj) if isinstance(obj, str) else obj
             # if not Permission.user_has_permission(request.user, codename, obj=obj_instance):
             if not Site_Permissions.user_has_permission(request.user, codename):
-                return render(request, "AccessDenied.html")
+                return render(request, "AccessDenied.html", status=403)
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator

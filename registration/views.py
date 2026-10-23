@@ -4,6 +4,8 @@ import pandas as pd
 from io import BytesIO
 from django.conf import settings
 from django.core.cache import cache
+from django.db import transaction
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.http import HttpResponse, JsonResponse
@@ -16,11 +18,15 @@ from django.db.models.functions import Lower, Trim
 
 from access_ctrl.decorators import permission_required
 from access_ctrl.utils import Site_Permissions
-from system_administration.utils import log_exception
+from system_administration.utils import client_ip, log_exception
 from core.renderData import Core
 from emails.views import send_registration_email
 
 from .models import EventFormStatus, Form_Participant
+
+
+def _deadline_passed() -> bool:
+    return timezone.now() > settings.REGISTRATION_DEADLINE
 
 
 def _get_publish_status() -> bool:
@@ -33,16 +39,13 @@ def registration_form(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('registration:registration_admin')
     if request.user.is_authenticated:
-        if not Site_Permissions.user_has_permission(request.user, 'reg_form_control'):
-            return redirect('core:dashboard')
-        elif not Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'):
-            return redirect('registration:registration_admin')
-        else:
-            return redirect('core:dashboard')
+        url_name = Site_Permissions.landing_url_name(request.user)
+        if url_name:
+            return redirect(url_name)
 
     context = {
         'is_staff_view': False,
-        'is_published': _get_publish_status(),
+        'is_published': _get_publish_status() and not _deadline_passed(),
     }
     return render(request, 'form.html', context)
 
@@ -87,12 +90,12 @@ def toggle_publish(request):
     return JsonResponse({'success': True, 'is_published': status.is_published})
 
 
-SUBMIT_RATE_LIMIT = 20          # submissions allowed ...
+SUBMIT_RATE_LIMIT = 30          # submissions allowed ...
 SUBMIT_RATE_WINDOW = 60 * 60    # ... per this many seconds, per client IP
 
 
 def _client_ip(request):
-    return request.META.get('REMOTE_ADDR', '')
+    return client_ip(request)
 
 
 def _rate_limited(request):
@@ -120,7 +123,31 @@ def _validate_abstract(upload):
         return 'Abstract must be a ' + ', '.join(settings.ABSTRACT_ALLOWED_EXTENSIONS) + ' file.'
     if upload.size > settings.ABSTRACT_MAX_UPLOAD_BYTES:
         return f'Abstract file must be smaller than {settings.ABSTRACT_MAX_UPLOAD_BYTES // (1024 * 1024)} MB.'
+    # a renamed file is not a PDF: real PDFs start with this signature
+    upload.seek(0)
+    signature = upload.read(5)
+    upload.seek(0)
+    if ext == '.pdf' and signature != b'%PDF-':
+        return 'The uploaded file is not a valid PDF.'
     return None
+
+
+def _store_abstract(participant, upload):
+    """Writes the uploaded abstract into the protected folder and returns its file name."""
+    abstracts_dir = os.path.join(settings.PROTECTED_ROOT, 'Abstracts')
+    os.makedirs(abstracts_dir, exist_ok=True)
+    safe_name = re.sub(r'[^A-Za-z0-9_-]', '', participant.name.replace(' ', '_'))[:40] or 'team'
+    filename = f"{participant.id}_{safe_name}.pdf"
+    path = os.path.join(abstracts_dir, filename)
+    try:
+        with open(path, 'wb') as dest:
+            for chunk in upload.chunks():
+                dest.write(chunk)
+    except Exception:
+        if os.path.exists(path):
+            os.remove(path)
+        raise
+    return filename
 
 
 def submit_form(request):
@@ -131,7 +158,7 @@ def submit_form(request):
         status = EventFormStatus.objects.order_by('-updated_at', '-id').first()
         is_admin = Site_Permissions.user_has_permission(request.user, 'reg_form_control')
         if not is_admin:
-            if not status or not status.is_published:
+            if not status or not status.is_published or _deadline_passed():
                 return JsonResponse({'success': False, 'message': 'Registration is currently closed.'})
             if _rate_limited(request):
                 return JsonResponse({'success': False, 'message': 'Too many submissions. Please try again later.'})
@@ -139,6 +166,9 @@ def submit_form(request):
         registration_type = _post(request, 'registration_type')
         if registration_type not in ('participant', 'competition'):
             return JsonResponse({'success': False, 'message': 'Invalid registration type.'})
+        if registration_type == 'competition' and not settings.COMPETITION_REGISTRATION_OPEN:
+            return JsonResponse({'success': False,
+                                 'message': 'Registration for the Policy Innovation Challenge is closed.'})
 
         # Common fields
         participant = Form_Participant(
@@ -182,19 +212,27 @@ def submit_form(request):
             participant.team_name = _post(request, 'team_name', 200)
             participant.total_members = _post(request, 'total_members')
 
-            for prefix in ('mem2', 'mem3'):
-                setattr(participant, f'{prefix}_name', _post(request, f'{prefix}_name', 200))
-                setattr(participant, f'{prefix}_university', _post(request, f'{prefix}_university', 200))
-                setattr(participant, f'{prefix}_department', _post(request, f'{prefix}_department', 200))
-                setattr(participant, f'{prefix}_student_id', _post(request, f'{prefix}_student_id', 50))
-                setattr(participant, f'{prefix}_email', _post(request, f'{prefix}_email', 254))
-                setattr(participant, f'{prefix}_phone', _post(request, f'{prefix}_phone', 20))
-                member_email = getattr(participant, f'{prefix}_email')
-                if member_email:
-                    try:
-                        validate_email(member_email)
-                    except ValidationError:
-                        errors.append(f'Please enter a valid email address for member {prefix[-1]}.')
+            team_size = int(participant.total_members) if participant.total_members in ('1', '2', '3') else 0
+            for number in (2, 3):
+                prefix = f'mem{number}'
+                for field, length in (('name', 200), ('university', 200), ('department', 200),
+                                      ('student_id', 50), ('email', 254), ('phone', 20)):
+                    # members beyond the chosen team size are ignored, whatever the browser sent
+                    value = _post(request, f'{prefix}_{field}', length) if number <= team_size else ''
+                    setattr(participant, f'{prefix}_{field}', value)
+                if number <= team_size:
+                    member_email = getattr(participant, f'{prefix}_email')
+                    if not getattr(participant, f'{prefix}_name') or not member_email:
+                        errors.append(f'Please enter the name and email of team member {number}.')
+                    else:
+                        try:
+                            validate_email(member_email)
+                        except ValidationError:
+                            errors.append(f'Please enter a valid email address for member {number}.')
+
+            team_emails = [e.lower() for e in (participant.email, participant.mem2_email, participant.mem3_email) if e]
+            if len(team_emails) != len(set(team_emails)):
+                errors.append('Each team member needs a different email address.')
 
             participant.track = _post(request, 'track')
             participant.project_title = _post(request, 'project_title', 300)
@@ -205,8 +243,11 @@ def submit_form(request):
 
             if not participant.team_name:
                 errors.append('Team name is required.')
+            elif Form_Participant.objects.filter(registration_type='competition',
+                                                 team_name__iexact=participant.team_name).exists():
+                errors.append('A team with this name is already registered. Please choose a different team name.')
             if participant.total_members not in _choice_values(Form_Participant.MEMBER_COUNT_CHOICES):
-                errors.append('Please select a valid team size.')
+                errors.append('A team needs 2 or 3 members.')
             if participant.track not in _choice_values(Form_Participant.TRACK_CHOICES):
                 errors.append('Please select a valid track.')
             if not participant.project_title:
@@ -224,20 +265,13 @@ def submit_form(request):
         if Form_Participant.objects.filter(registration_type=registration_type, email__iexact=participant.email).exists():
             return JsonResponse({'success': False, 'message': 'This email address has already been registered.'})
 
-        participant.save()
-
-        # Handle abstract file upload (competition only)
-        if abstract:
-            abstracts_dir = os.path.join(settings.PROTECTED_ROOT, 'Abstracts')
-            os.makedirs(abstracts_dir, exist_ok=True)
-            ext = os.path.splitext(abstract.name)[1].lower()
-            safe_name = re.sub(r'[^A-Za-z0-9_-]', '', participant.name.replace(' ', '_'))[:40] or 'team'
-            filename = f"{participant.id}_{safe_name}{ext}"
-            with open(os.path.join(abstracts_dir, filename), 'wb') as dest:
-                for chunk in abstract.chunks():
-                    dest.write(chunk)
-            participant.abstract_file = filename
-            participant.save(update_fields=['abstract_file'])
+        # The registration and its abstract are saved together: if the file cannot be written the
+        # registration is rolled back, so the person can simply submit again.
+        with transaction.atomic():
+            participant.save()
+            if abstract:
+                participant.abstract_file = _store_abstract(participant, abstract)
+                participant.save(update_fields=['abstract_file'])
 
         email_success = send_registration_email(request, participant.email, registration_type)
 

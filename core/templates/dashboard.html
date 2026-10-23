@@ -518,6 +518,14 @@ video{
         }
       }
     </style>
+      <script>
+      // Escape text before it is placed inside HTML (names come from the public registration form)
+      function escapeHtml(value) {
+        return String(value === null || value === undefined ? '' : value).replace(/[&<>"']/g, (c) => (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+      }
+    </script>
   </head>
   <body>
      <div id="particles-js"></div>
@@ -868,7 +876,7 @@ const populateModal = () => {
     li.style.marginBottom = "10px";
     li.innerHTML = `<button data-id="${session.id}" style="color: #007BFF; text-decoration: none; font-size: 1.2em; width: 60%; background: white;
     border-radius: 4px;
-    color: black;">${session.name}</button>`;
+    color: black;">${escapeHtml(session.name)}</button>`;
     sessionUrls.appendChild(li);
   });
 };
@@ -944,7 +952,7 @@ sessionUrls.addEventListener("click", (event) => {
             title: `${status}`,
             html: `Session: ${data.session}<br>
             Serial no: ${data.participant.sl}<br>
-            Name: ${data.participant.name}
+            Name: ${escapeHtml(data.participant.name)}
             ${rejected_reason}`,
             icon: ic,
             confirmButtonText: 'OK',
@@ -1119,7 +1127,7 @@ checkboxes.forEach((checkbox) => {
               Swal.fire({
                 title: `${data.message}`,
                 html: `Serial no: ${data.participant.sl}<br>
-                Name: ${data.participant.name}`,
+                Name: ${escapeHtml(data.participant.name)}`,
                 icon: ic,
                 confirmButtonText: 'OK',
               });
@@ -1161,7 +1169,7 @@ checkboxes.forEach((checkbox) => {
               Swal.fire({
                 title: `${data.message}`,
                 html: `Serial no: ${data.participant.sl}<br>
-                Name: ${data.participant.name}`,
+                Name: ${escapeHtml(data.participant.name)}`,
                 icon: ic,
                 confirmButtonText: 'OK',
               });
@@ -1175,7 +1183,7 @@ checkboxes.forEach((checkbox) => {
   });
 });
 
-var last_updated_date_time = new Date();
+var last_updated_date_time = "{{ server_time }}";  // the server's clock, not this computer's
   var countdown = 10;
 
   // Function to fetch session statuses
@@ -1190,15 +1198,15 @@ var last_updated_date_time = new Date();
     })
       .then((response) => response.json())
       .then((data) => {
-        last_updated_date_time = new Date();
+        if (data.server_time) last_updated_date_time = data.server_time;
 
         {% if has_perm.scan_any_session %}
         for (var d in data['status']) {
           document.getElementById(`session_${d}`).innerHTML = data['status'][d];
         }
-        for (var f in data['new_scans']) {
+        for (const scan of (data['new_scans'] || [])) {
           try {
-            document.getElementById(`${f}_${data['new_scans'][f]}`).checked = true;
+            document.getElementById(`${scan.participant}_${scan.session}`).checked = true;
           } catch (e) {
 
           }
@@ -1210,9 +1218,9 @@ var last_updated_date_time = new Date();
           for (var d in data['status']) {
             document.getElementById(`session_${d}`).innerHTML = data['status'][d];
           }
-          for (var f in data['new_scans']) {
+          for (const scan of (data['new_scans'] || [])) {
             try {
-              document.getElementById(`${f}_${data['new_scans'][f]}`).checked = true;
+              document.getElementById(`${scan.participant}_${scan.session}`).checked = true;
             } catch (e) {
 
             }
@@ -1266,9 +1274,9 @@ document.querySelectorAll('.details').forEach(detailsBtn => {
       // Populate modal with dynamic content
       modalContent.innerHTML = `
           <img style='width:100%' src="/protected/Participant_QR/${detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent}.png">
-          <input type="email" id="email" data-sl="${detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent}" style="width:100px;padding: 2px 4px;border-radius:4px;margin-bottom:5px;" name="email" placeholder="Enter email" required>
+          <input type="email" id="email" data-sl="${escapeHtml(detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent.trim())}" style="width:100px;padding: 2px 4px;border-radius:4px;margin-bottom:5px;" name="email" placeholder="Enter email" required>
           <button type="submit" class="send_qr">Send QR</button>
-          {% if has_perm.delete_participant %}<button type="button" class="delete_participant" data-sl="${detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent}" data-name="${detailsBtn.closest('tr').querySelector('td:nth-child(2)').textContent}" style="margin-top:5px;padding:4px 8px;background:#d33;color:#fff;border:none;border-radius:4px;cursor:pointer;width:100%;">Delete participant</button>{% endif %}`;
+          {% if has_perm.delete_participant %}<button type="button" class="delete_participant" data-sl="${escapeHtml(detailsBtn.closest('tr').querySelector('td:nth-child(1)').textContent)}" data-name="${escapeHtml(detailsBtn.closest('tr').querySelector('td:nth-child(2)').textContent)}" style="margin-top:5px;padding:4px 8px;background:#d33;color:#fff;border:none;border-radius:4px;cursor:pointer;width:100%;">Delete participant</button>{% endif %}`;
     }, 0); // Delay the positioning until after the modal has been displayed
   });
 });
@@ -1290,7 +1298,7 @@ details_form.addEventListener("click", (e) => {
   e.preventDefault();
   Swal.fire({
     title: "Delete participant?",
-    html: `<b>${btn.dataset.name}</b> (SL ${btn.dataset.sl}) will be <b>permanently deleted</b> from the dashboard and the registration responses, including scan records, QR code and uploaded abstract.<br>This cannot be undone.`,
+    html: `<b>${escapeHtml(btn.dataset.name)}</b> (SL ${escapeHtml(btn.dataset.sl)}) will be <b>permanently deleted</b> from the dashboard and the registration responses, including scan records, QR code and uploaded abstract.<br>This cannot be undone.`,
     icon: "warning",
     showCancelButton: true,
     confirmButtonColor: "#d33",

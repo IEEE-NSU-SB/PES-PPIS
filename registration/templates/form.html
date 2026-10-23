@@ -296,6 +296,14 @@
         }
       }
     </style>
+      <script>
+      // Escape text before it is placed inside HTML (names come from the public registration form)
+      function escapeHtml(value) {
+        return String(value === null || value === undefined ? '' : value).replace(/[&<>"']/g, (c) => (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+      }
+    </script>
   </head>
 
   <body class="py-3 min-h-screen">
@@ -813,7 +821,7 @@
             class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm"
             style="color: #1a3060"
           >
-            <p class="font-semibold mb-1">Bkash Payment</p>
+            <p class="font-semibold mb-1">Bkash Payment (Send Money)</p>
             <p>
               Send to: <strong>01728104471</strong> (Meraz Irteza Rivly —
               Coordinator, Finance &amp; Corporate Team)
@@ -1295,7 +1303,7 @@
             class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 text-sm"
             style="color: #1a3060"
           >
-            <p class="font-semibold mb-1">Bkash Payment</p>
+            <p class="font-semibold mb-1">Bkash Payment (Send Money)</p>
             <p>
               Send to: <strong>01728104471</strong> (Meraz Irteza Rivly —
               Coordinator, Finance &amp; Corporate Team)
@@ -1411,7 +1419,7 @@
       function selectType(type) {
         regType = type;
         document.getElementById('reg_type_input').value = type;
-        document.getElementById('card-participant').classList.toggle('selected', type === 'participant');
+        document.querySelectorAll('.type-card').forEach(card => card.classList.toggle('selected', card.id === 'card-' + type));
         document.getElementById('step0Next').disabled = false;
         // Show/hide IEEE ID field
         const ieeeField = document.getElementById('ieee_id_field');
@@ -1635,7 +1643,7 @@
 
         drop.classList.add('has-file');
         document.getElementById('fileDropText').innerHTML =
-          `<p class="font-medium text-green-700">✓ ${file.name}</p><p class="text-sm text-gray-500">${(file.size/1024/1024).toFixed(2)} MB</p>`;
+          `<p class="font-medium text-green-700">✓ ${escapeHtml(file.name)}</p><p class="text-sm text-gray-500">${(file.size/1024/1024).toFixed(2)} MB</p>`;
         removeBtn.classList.remove('hidden');
       }
 
@@ -1701,7 +1709,19 @@
             headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') },
             body: formData,
           });
-          const data = await resp.json();
+          let data;
+          try {
+            data = await resp.json();
+          } catch (parseError) {
+            // The server answered with a page instead of JSON (expired session, upload too large, server problem)
+            const reason = resp.status === 403
+              ? 'Your session has expired. Please refresh the page and try again.'
+              : resp.status === 413 || resp.status === 400
+                ? 'The upload was rejected. Please check that your PDF is under 10 MB and try again.'
+                : `The server could not process the request (error ${resp.status}). Please try again in a moment.`;
+            Swal.fire('Registration Failed', reason, 'error');
+            return;
+          }
           if (data.success) {
             if (data.email_sent === false) {
               // Saved, but the confirmation email failed: do not ask the user to register again
@@ -1717,17 +1737,23 @@
                 icon: 'success',
               });
             }
-            this.reset();
-            resetFileUI();
-            updateMemberSections();
-            goToStep(0);
-            regType = '';
-            document.getElementById('reg_type_input').value = '';
-            ['card-participant','card-competition'].forEach(id =>
-              document.getElementById(id).classList.remove('selected'));
-            document.getElementById('step0Next').disabled = true;
-            const ieeeField = document.getElementById('ieee_id_field');
-            if (ieeeField) ieeeField.classList.add('hidden');
+            // The registration is already saved. Resetting the form is cosmetic, so a problem here
+            // (for example a card that is switched off in the page) must not replace the success message.
+            try {
+              this.reset();
+              resetFileUI();
+              updateMemberSections();
+              goToStep(0);
+              regType = '';
+              document.getElementById('reg_type_input').value = '';
+              document.querySelectorAll('.type-card').forEach(card => card.classList.remove('selected'));
+              const nextBtn = document.getElementById('step0Next');
+              if (nextBtn) nextBtn.disabled = true;
+              const ieeeField = document.getElementById('ieee_id_field');
+              if (ieeeField) ieeeField.classList.add('hidden');
+            } catch (resetError) {
+              console.error('Form reset failed after a successful registration:', resetError);
+            }
           } else {
             Swal.fire('Registration Failed', data.message, 'error');
           }

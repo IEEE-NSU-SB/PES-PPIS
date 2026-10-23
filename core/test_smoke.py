@@ -104,3 +104,28 @@ class SmokeTests(TestCase):
         self.assertIn("COMPETITION_STEPS = ['0','1','2c','3c']", html)
         self.assertNotIn('step4c', html)
         self.assertEqual(html.count('id="submitBtnC"'), 1)
+
+    def test_registration_form_html_is_balanced(self):
+        """Blocks of the form are switched off with HTML comments by hand; make sure none is left open."""
+        from html.parser import HTMLParser
+
+        class Depth(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.depth = 0
+                self.forms = 0
+
+            def handle_starttag(self, tag, attrs):
+                self.depth += tag == 'div'
+                self.forms += tag == 'form'
+
+            def handle_endtag(self, tag):
+                self.depth -= tag == 'div'
+
+        self.client.logout()
+        html = self.client.get('/').content.decode()
+        parser = Depth()
+        parser.feed(html)
+        self.assertEqual(parser.depth, 0)
+        self.assertEqual(parser.forms, 1)
+        self.assertEqual(html.count('<!--'), html.count('-->'))

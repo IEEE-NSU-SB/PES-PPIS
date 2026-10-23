@@ -15,3 +15,18 @@ def log_exception(exception, request=None):
         )
     except Exception:
         pass
+
+
+def client_ip(request):
+    """The visitor's IP address, used for rate limiting. Behind a trusted proxy the real address is the first
+    entry of X-Forwarded-For; otherwise every visitor would look like the proxy and share one limit."""
+    import ipaddress
+    from django.conf import settings
+
+    if getattr(settings, 'TRUST_FORWARDED_FOR', False):
+        forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+        try:
+            return str(ipaddress.ip_address(forwarded))
+        except ValueError:
+            pass
+    return request.META.get('REMOTE_ADDR', '')

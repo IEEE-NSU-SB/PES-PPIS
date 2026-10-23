@@ -2,8 +2,10 @@ import csv
 import json
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views import View
 from django.contrib import messages
+from django.core.cache import cache
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.models import auth
 from django.contrib.auth.decorators import login_required
@@ -15,41 +17,50 @@ from .renderData import Core
 
 from core.forms import CSVImportForm
 from core.models import Registered_Participant
-from system_administration.utils import log_exception
+from system_administration.utils import client_ip, log_exception
 
-# Create your views here.
+LOGIN_MAX_FAILURES = 8        # wrong passwords allowed ...
+LOGIN_FAILURE_WINDOW = 15 * 60  # ... per this many seconds, for one username from one address
+
+
+def _landing_redirect(request):
+    """Send a signed-in user to the first page they may open."""
+    url_name = Site_Permissions.landing_url_name(request.user)
+    if url_name:
+        return redirect(url_name)
+    return render(request, 'AccessDenied.html', status=403)
+
+
 def login(request):
 
     if request.user.is_authenticated:
-        if not Site_Permissions.user_has_permission(request.user, 'reg_form_control'):
-            return redirect('core:dashboard')
-        elif not Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'):
-            return redirect('registration:registration_admin')
-        else:
-            return redirect('core:dashboard')
-    
-    if(request.method == 'POST'):
+        return _landing_redirect(request)
+
+    if request.method == 'POST':
         username = request.POST.get('username', '')
         password = request.POST.get('password', '')
 
+        throttle_key = f'login_fail:{client_ip(request)}:{username.strip().lower()[:150]}'
+        if cache.get(throttle_key, 0) >= LOGIN_MAX_FAILURES:
+            messages.error(request, 'Too many failed attempts. Please wait 15 minutes and try again.')
+            return render(request, 'login.html', status=429)
+
         user = auth.authenticate(username=username, password=password)
-        if(user is not None):
-            # Check for the 'next' parameter in the GET request
+        if user is not None:
+            cache.delete(throttle_key)
             next_url = request.GET.get('next')
 
             auth.login(request, user)
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
-                # Redirect to the originally requested URL
                 return redirect(next_url)
-            else:
-                if not Site_Permissions.user_has_permission(request.user, 'reg_form_control'):
-                    return redirect('core:dashboard')
-                elif not Site_Permissions.user_has_permission(request.user, 'view_qr_dashboard'):
-                    return redirect('registration:registration_admin')
-                else:
-                    return redirect('core:dashboard')
-        else:
-            messages.error(request, "Credentials don't match")
+            return _landing_redirect(request)
+
+        cache.add(throttle_key, 0, LOGIN_FAILURE_WINDOW)
+        try:
+            cache.incr(throttle_key)
+        except ValueError:
+            pass
+        messages.error(request, "Credentials don't match")
 
     return render(request, 'login.html')
 
@@ -126,6 +137,7 @@ def dashboard(request):
         'total_participants':total_participants,
         'participant_universities':universities,
         'has_perm':permissions,
+        'server_time': timezone.now().isoformat(),
     }
 
     return render(request, 'dashboard.html', context)
@@ -152,6 +164,8 @@ class GetSessionStatusAjax(View):
             return render(request, '404.html', status=404)
         try:
             last_updated_date_time = json.loads(request.body)['last_updated_date_time']
+            # Taken before reading, so a scan that happens while we read is returned next time, never lost
+            server_time = timezone.now()
             token_sessions_with_participant_count = Core.get_all_token_sessions_with_participant_counts()
 
             new_scans = Core.get_new_token_session_scans(last_updated_date_time)
@@ -161,10 +175,10 @@ class GetSessionStatusAjax(View):
             for x in token_sessions_with_participant_count:
                 status.update({x['sessionid']: x['participant_count']})
             data.update({'status': status})
-            scans = {}
-            for x in new_scans:
-                scans.update({x['registered_participant']: x['token_session']})
-            data.update({'new_scans': scans})
+            # A list, because one participant can be scanned for several sessions between two refreshes
+            data.update({'new_scans': [{'participant': x['registered_participant'], 'session': x['token_session']}
+                                       for x in new_scans]})
+            data.update({'server_time': server_time.isoformat()})
 
             if request.session.get('active_sessions') != Core.active_sessions_signature():
                 data.update({'session_update': ''})

@@ -85,7 +85,8 @@ class InitEndpointTests(TestCase):
 @override_settings(SECURE_SSL_REDIRECT=False)
 class LoginTests(TestCase):
     def setUp(self):
-        User.objects.create_user('u', password='pw')
+        user = User.objects.create_user('u', password='pw')
+        UserPermission.objects.create(user=user).permissions.add(Permission.objects.get(codename='view_qr_dashboard'))
 
     def test_open_redirect_blocked(self):
         response = self.client.post('/login/?next=https://evil.example/', {'username': 'u', 'password': 'pw'})
@@ -185,3 +186,41 @@ class DeleteParticipantTests(TestCase):
         self.client.force_login(self.user)
         self.assertNotContains(self.client.get('/registration/responses/'), 'Delete</button>')
         self.assertNotContains(self.client.get('/dashboard/'), 'delete_participant')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class DashboardPollingTests(TestCase):
+    def setUp(self):
+        self.client.force_login(User.objects.create_superuser('root', password='pw'))
+        self.ann = Registered_Participant.objects.create(name='Ann', email='a@x.co', unique_code='A' * 13)
+        self.lunch = Token_Session.objects.create(session_name='Lunch', is_active=True, order_of_session=1)
+        self.dinner = Token_Session.objects.create(session_name='Dinner', is_active=True, order_of_session=2)
+
+    def poll(self, since):
+        response = self.client.post('/api/get_session_statuses/', json.dumps({'last_updated_date_time': since}),
+                                    content_type='application/json')
+        return response.json()
+
+    def test_every_new_scan_is_returned_even_for_the_same_participant(self):
+        Token_Participant.objects.create(registered_participant=self.ann, token_session=self.lunch)
+        Token_Participant.objects.create(registered_participant=self.ann, token_session=self.dinner)
+        data = self.poll('2000-01-01T00:00:00Z')
+        pairs = {(s['participant'], s['session']) for s in data['new_scans']}
+        self.assertEqual(pairs, {(self.ann.id, self.lunch.id), (self.ann.id, self.dinner.id)})
+
+    def test_server_clock_drives_the_next_poll(self):
+        first = self.poll('2000-01-01T00:00:00Z')
+        self.assertIn('server_time', first)
+        self.assertEqual(first['new_scans'], [])
+        Token_Participant.objects.create(registered_participant=self.ann, token_session=self.lunch)
+        # a computer whose clock is hours slow still sees the scan, because it asks with the server's time
+        second = self.poll(first['server_time'])
+        self.assertEqual(len(second['new_scans']), 1)
+        # and the scan is not repeated on the poll after that
+        third = self.poll(second['server_time'])
+        self.assertEqual(third['new_scans'], [])
+
+    def test_dashboard_starts_from_the_server_clock(self):
+        html = self.client.get('/dashboard/').content.decode()
+        self.assertRegex(html, r'var last_updated_date_time = "\d{4}-\d{2}-\d{2}T')
+        self.assertNotIn('last_updated_date_time = new Date()', html)

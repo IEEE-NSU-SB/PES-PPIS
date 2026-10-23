@@ -30,3 +30,14 @@ class Site_Permissions:
     def is_superuser(user):
 
         return user.is_superuser
+
+    def landing_url_name(user):
+        """The first page a signed-in user is allowed to open, or None if they have no permissions yet."""
+
+        if Site_Permissions.user_has_permission(user, 'view_qr_dashboard'):
+            return 'core:dashboard'
+        if Site_Permissions.user_has_permission(user, 'reg_form_control'):
+            return 'registration:registration_admin'
+        if Site_Permissions.user_has_permission(user, 'view_reg_responses_list'):
+            return 'registration:response_table'
+        return None

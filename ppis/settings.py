@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from datetime import datetime
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -36,6 +37,7 @@ if ENVIRONMENT not in ('dev', 'prod'):
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = ENVIRONMENT == 'dev'
+TRUST_FORWARDED_FOR = False
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
@@ -43,8 +45,11 @@ else:
     CSRF_TRUSTED_ORIGINS = [f'https://{h}' for h in ALLOWED_HOSTS]
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', '1') == '1'
+    # Opt-in: redirecting to HTTPS only works if the proxy sends X-Forwarded-Proto, otherwise it loops forever
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', '0') == '1'
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Behind the host's proxy every request comes from the proxy's address, so rate limits need X-Forwarded-For
+    TRUST_FORWARDED_FOR = os.environ.get('TRUST_FORWARDED_FOR', '1') == '1'
     SECURE_HSTS_SECONDS = 31536000
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
@@ -198,3 +203,10 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
 
 # Registration fee per participant (BDT), used by the statistics on the responses page
 REGISTRATION_FEES = {'ieee': 600, 'non_ieee': 750}
+
+# Registration closes by itself at this moment (even if the form is still switched on)
+REGISTRATION_DEADLINE = datetime.fromisoformat(os.environ.get('REGISTRATION_DEADLINE', '2026-10-26T23:59:59+06:00'))
+
+# The Policy Innovation Challenge (team) registration. The form currently only offers the summit, so the
+# server refuses team registrations too. Set COMPETITION_REGISTRATION_OPEN=1 to accept them again.
+COMPETITION_REGISTRATION_OPEN = os.environ.get('COMPETITION_REGISTRATION_OPEN', '0') == '1'

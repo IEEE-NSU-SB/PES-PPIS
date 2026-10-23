@@ -32,7 +32,9 @@ def competition_payload(**overrides):
     data = participant_payload(
         registration_type='competition',
         team_name='Team A',
-        total_members='1',
+        total_members='2',
+        mem2_name='Mate',
+        mem2_email='mate@example.com',
         track='track_a',
         project_title='Smart grid',
         problem_statement='p',
@@ -62,6 +64,7 @@ class SubmitFormEmailFailureTests(TestCase):
         self.assertEqual(Form_Participant.objects.count(), 1)
 
 
+@override_settings(COMPETITION_REGISTRATION_OPEN=True)
 class SubmitFormTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -162,6 +165,7 @@ class AdminEndpointPermissionTests(TestCase):
         self.assertTrue(df['Name'][0].startswith("'="))
 
 
+@override_settings(COMPETITION_REGISTRATION_OPEN=True)
 class TeamEmailTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -284,6 +288,7 @@ class ResponseTabsTests(TestCase):
         self.assertNotContains(response, 'Transaction ID')
 
 
+@override_settings(COMPETITION_REGISTRATION_OPEN=True)
 class ParticipantTransactionIdTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -303,6 +308,11 @@ class ParticipantTransactionIdTests(TestCase):
         response = self.client.post(self.url, participant_payload(transaction_id=' ABC123 '))
         self.assertTrue(response.json()['success'])
         self.assertEqual(Form_Participant.objects.get().transaction_id, 'ABC123')
+
+    def test_payment_box_says_send_money(self):
+        html = self.client.get('/').content.decode()
+        step_p = html[html.index('id="step2p"'):html.index('id="step2c"')]
+        self.assertIn('Bkash Payment (Send Money)', step_p)
 
     def test_competition_does_not_need_one(self):
         self.assertTrue(self.client.post(self.url, competition_payload()).json()['success'])
@@ -360,6 +370,7 @@ class StatisticsLayoutTests(TestCase):
         self.assertContains(response, 'Total Registration:')
 
 
+@override_settings(COMPETITION_REGISTRATION_OPEN=True)
 class TrackAndFormFieldTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -369,6 +380,7 @@ class TrackAndFormFieldTests(TestCase):
         self.addCleanup(patcher.stop)
 
     def submit(self, **overrides):
+        overrides.setdefault('team_name', 'Team ' + overrides.get('email', 'default'))
         payload = competition_payload(**overrides)
         for key in ('problem_statement', 'proposed_solution'):
             payload.pop(key, None)  # the form no longer sends these
@@ -404,28 +416,68 @@ class TrackAndFormFieldTests(TestCase):
 
 
 class ChallengeDetailsTests(TestCase):
-    def test_details_are_shown_above_the_registration_type_choice(self):
-        EventFormStatus.objects.create(is_published=True)
+    """The details block at the top of the form. Parts of the form are switched off with HTML comments,
+    so these tests only look at what a visitor actually sees (comments removed)."""
+
+    def visible_step0(self):
+        import re
+        EventFormStatus.objects.get_or_create(is_published=True)
         html = self.client.get('/').content.decode()
-        step0 = html[html.index('id="step0"'):html.index('id="step1"')]
-        details = step0.index('id="challengeDetails"')
-        heading = step0.index('Choose Your Registration Type')
-        self.assertLess(details, heading)
-        for text in ('Power Policy Innovation Challenge', 'PPIC Prize Pool:', '65,000 BDT', 'PPIC Abstract Submission Deadline:</strong> October 16, 2026,',
-                 'PPIS Participation Deadline:</strong> October 26, 2026, 11:59 PM (GMT+6)', '09:00 AM to 07:30 PM (GMT+6)',
-                     '2-3 members per team (no solo entries)', 'Each team must have a unique team name',
-                     'Round 2 (Top 20 Pitch)', 'AUDI801', 'Grand Finale (Top 5 Defense)',
-                     'Only one registration per team is needed', 'Lutful Islam Nabid', '+8801712902722',
+        html = re.sub(r'<!--.*?-->', '', html, flags=re.S)
+        return html, html[html.index('id="step0"'):html.index('id="step1"')]
+
+    def test_details_are_shown_once_above_the_type_cards(self):
+        html, step0 = self.visible_step0()
+        self.assertEqual(html.count('id="challengeDetails"'), 1)
+        self.assertLess(step0.index('id="challengeDetails"'), step0.index('class="type-card"'))
+
+    def test_details_content(self):
+        import re
+        _, step0 = self.visible_step0()
+        for text in ('Event Details', 'October 31, 2026', '09:00 AM - 07:30 PM (GMT+6)', 'North South University',
+                     'Registration Deadline: October 26, 2026, 11:59 PM (GMT+6)',
+                     'do not need to register again', 'Lutful Islam Nabid', '+8801712902722',
                      'Ridwan Islam Rifath', '+8801919356207'):
             self.assertIn(text, step0, text)
-        # not repeated on the later steps
-        self.assertEqual(html.count('id="challengeDetails"'), 1)
-        # the event name is the title of the block, and the details carry no *** markers
-        import re
+        # the event name is the title, ahead of the text
         title = re.search(r'Power Policy &amp; Innovation Summit\s*</h2>', step0)
         self.assertIsNotNone(title)
-        self.assertLess(title.start(), step0.index('The IEEE NSU PES Student Branch Chapter'))
+        self.assertLess(title.start(), step0.index('The <b>Power Policy'))
         self.assertNotIn('***', step0)
-        self.assertIn('PPIC abstracts must be submitted by October 16, 2026, 11:59 PM (GMT+6)', step0)
-        # no fee shown on the Competition card (registration is free; selected teams pay later)
+
+    def test_no_registration_fee_is_shown_on_the_type_cards(self):
+        html, _ = self.visible_step0()
         self.assertNotIn('Team Registration: BDT', html)
+
+
+class FormScriptSafetyTests(TestCase):
+    """Parts of the form can be switched off with HTML comments (for example the Competition card).
+    The page script must not look cards up by a fixed id, or it crashes with
+    "Cannot read properties of null (reading 'classList')" right after a registration is saved."""
+
+    def script(self):
+        EventFormStatus.objects.get_or_create(is_published=True)
+        html = self.client.get('/').content.decode()
+        return html[html.rindex('<script>'):]
+
+    def test_cards_are_not_looked_up_by_fixed_id(self):
+        script = self.script()
+        self.assertNotIn("getElementById('card-competition')", script)
+        self.assertNotIn("getElementById('card-participant')", script)
+        self.assertNotIn("getElementById(id).classList", script)
+
+    def test_form_reset_after_success_cannot_replace_the_success_message(self):
+        script = self.script()
+        success = script[script.index('Registration Complete'):script.index("Swal.fire('Registration Failed', data.message")]
+        self.assertIn('try {', success)
+        self.assertIn('resetError', success)
+
+
+class FormServerErrorHandlingTests(TestCase):
+    def test_form_explains_non_json_server_answers(self):
+        EventFormStatus.objects.get_or_create(is_published=True)
+        html = self.client.get('/').content.decode()
+        script = html[html.rindex('<script>'):]
+        self.assertIn('parseError', script)
+        self.assertIn('Your session has expired', script)
+        self.assertIn('under 10 MB', script)

@@ -28,7 +28,11 @@ def protected_serve(request, path):
 
     root = os.path.realpath(settings.PROTECTED_ROOT)
     real_path = os.path.realpath(file_path)
-    if os.path.commonpath([root, real_path]) != root or not os.path.isfile(real_path):
+    try:
+        inside_root = os.path.commonpath([root, real_path]) == root
+    except ValueError:  # for example a different drive on Windows
+        inside_root = False
+    if not inside_root or not os.path.isfile(real_path):
         raise Http404("File not found")
 
     top_folder = os.path.relpath(real_path, root).split(os.sep)[0]

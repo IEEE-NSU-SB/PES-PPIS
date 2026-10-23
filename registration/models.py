@@ -43,7 +43,6 @@ class Form_Participant(models.Model):
         ('non_ieee', 'Non-IEEE Member'),
     ]
     MEMBER_COUNT_CHOICES = [
-        ('1', 'Solo (1 Member)'),
         ('2', '2 Members'),
         ('3', '3 Members'),
     ]

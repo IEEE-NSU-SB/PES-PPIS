@@ -45,6 +45,14 @@
         transition: 0.6s;
       }
     </style>
+      <script>
+      // Escape text before it is placed inside HTML (names come from the public registration form)
+      function escapeHtml(value) {
+        return String(value === null || value === undefined ? '' : value).replace(/[&<>"']/g, (c) => (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+      }
+    </script>
   </head>
   <body class="m-0 p-0">
     <div id="particles-js"></div>
@@ -331,7 +339,7 @@
           event.stopPropagation();
           Swal.fire({
             title: "Delete participant?",
-            html: `<b>${btn.dataset.name}</b> will be <b>permanently deleted</b> from the responses and the dashboard, including their scan records, QR code and uploaded abstract.<br>This cannot be undone.`,
+            html: `<b>${escapeHtml(btn.dataset.name)}</b> will be <b>permanently deleted</b> from the responses and the dashboard, including their scan records, QR code and uploaded abstract.<br>This cannot be undone.`,
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#d33",
