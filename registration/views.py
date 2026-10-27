@@ -5,7 +5,6 @@ from io import BytesIO
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
-from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.http import HttpResponse, JsonResponse
@@ -25,10 +24,6 @@ from emails.views import send_registration_email
 from .models import EventFormStatus, Form_Participant
 
 
-def _deadline_passed() -> bool:
-    return timezone.now() > settings.REGISTRATION_DEADLINE
-
-
 def _get_publish_status() -> bool:
     status = EventFormStatus.objects.order_by('-updated_at', '-id').first()
     return bool(status and status.is_published)
@@ -45,7 +40,7 @@ def registration_form(request):
 
     context = {
         'is_staff_view': False,
-        'is_published': _get_publish_status() and not _deadline_passed(),
+        'is_published': _get_publish_status(),
     }
     return render(request, 'form.html', context)
 
@@ -158,7 +153,7 @@ def submit_form(request):
         status = EventFormStatus.objects.order_by('-updated_at', '-id').first()
         is_admin = Site_Permissions.user_has_permission(request.user, 'reg_form_control')
         if not is_admin:
-            if not status or not status.is_published or _deadline_passed():
+            if not status or not status.is_published:
                 return JsonResponse({'success': False, 'message': 'Registration is currently closed.'})
             if _rate_limited(request):
                 return JsonResponse({'success': False, 'message': 'Too many submissions. Please try again later.'})

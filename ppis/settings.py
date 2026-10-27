@@ -10,7 +10,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-from datetime import datetime
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -203,9 +202,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
 
 # Registration fee per participant (BDT), used by the statistics on the responses page
 REGISTRATION_FEES = {'ieee': 600, 'non_ieee': 750}
-
-# Registration closes by itself at this moment (even if the form is still switched on)
-REGISTRATION_DEADLINE = datetime.fromisoformat(os.environ.get('REGISTRATION_DEADLINE', '2026-10-26T23:59:59+06:00'))
 
 # The Policy Innovation Challenge (team) registration. The form currently only offers the summit, so the
 # server refuses team registrations too. Set COMPETITION_REGISTRATION_OPEN=1 to accept them again.

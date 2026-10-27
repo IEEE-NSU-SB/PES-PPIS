@@ -2,7 +2,6 @@
 import os
 import re
 import tempfile
-from datetime import timedelta
 from unittest.mock import patch
 
 from django.conf import settings
@@ -11,7 +10,6 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
-from django.utils import timezone
 
 from access_ctrl.models import Permission, UserPermission
 from access_ctrl.utils import Site_Permissions
@@ -285,7 +283,7 @@ class DeploymentSettingsTests(TestCase):
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
-class CompetitionAndDeadlineTests(TestCase):
+class CompetitionAndPublishTests(TestCase):
     def setUp(self):
         cache.clear()
         EventFormStatus.objects.create(is_published=True)
@@ -319,34 +317,22 @@ class CompetitionAndDeadlineTests(TestCase):
     def test_participants_are_not_affected_by_the_team_setting(self):
         self.assertTrue(self.client.post(self.url, self.participant()).json()['success'])
 
-    # ---- deadline
-    def test_registration_closes_by_itself_at_the_deadline(self):
-        past = timezone.now() - timedelta(minutes=1)
-        with override_settings(REGISTRATION_DEADLINE=past):
-            result = self.client.post(self.url, self.participant()).json()
-            page = self.client.get('/').content.decode()
+    def test_publish_switch_controls_public_form_and_submissions(self):
+        status = EventFormStatus.objects.get()
+        status.is_published = False
+        status.save(update_fields=['is_published'])
+
+        page = self.client.get('/').content.decode()
+        self.assertNotIn('id="registrationForm"', page)
+        result = self.client.post(self.url, self.participant()).json()
         self.assertFalse(result['success'])
         self.assertIn('closed', result['message'].lower())
-        self.assertEqual(Form_Participant.objects.count(), 0)
-        self.assertNotIn('id="registrationForm"', page)             # the public page shows the closed state
 
-    def test_registration_is_open_before_the_deadline(self):
-        future = timezone.now() + timedelta(hours=1)
-        with override_settings(REGISTRATION_DEADLINE=future):
-            self.assertTrue(self.client.post(self.url, self.participant()).json()['success'])
-            self.assertIn('id="registrationForm"', self.client.get('/').content.decode())
-
-    def test_staff_can_still_register_someone_after_the_deadline(self):
-        admin = User.objects.create_superuser('root', password='pw')
-        self.client.force_login(admin)
-        with override_settings(REGISTRATION_DEADLINE=timezone.now() - timedelta(days=1)):
-            self.assertTrue(self.client.post(self.url, self.participant()).json()['success'])
-            self.assertEqual(self.client.get('/registration/admin/').status_code, 200)
-
-    def test_deadline_is_26_october_2026_end_of_day_dhaka_time(self):
-        source = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ppis', 'settings.py'),
-                      encoding='utf-8').read()
-        self.assertIn("'2026-10-26T23:59:59+06:00'", source)
+        status.is_published = True
+        status.save(update_fields=['is_published'])
+        page = self.client.get('/').content.decode()
+        self.assertIn('id="registrationForm"', page)
+        self.assertTrue(self.client.post(self.url, self.participant()).json()['success'])
 
     # ---- team size and team names
     @override_settings(COMPETITION_REGISTRATION_OPEN=True)
