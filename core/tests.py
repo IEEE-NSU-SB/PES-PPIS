@@ -75,11 +75,21 @@ class InitEndpointTests(TestCase):
             Form_Participant.objects.create(
                 registration_type='participant', name=f'P{i}', email=email, phone='1', university='U',
                 department='cs', student_id=str(i), study_level='undergrad')
+        Form_Participant.objects.create(
+            registration_type='competition', name='Team Lead', email='lead@x.co', phone='1', university='Lead U',
+            department='cs', student_id='4', study_level='undergrad', team_name='Team',
+            total_members='3', mem2_name='Mate Two', mem2_email='mate2@x.co', mem2_phone='2',
+            mem2_university='Mate U', mem3_name='Mate Three', mem3_email='mate3@x.co', mem3_phone='3',
+            mem3_university='Third U')
         self.client.force_login(self.admin)
         self.assertEqual(self.client.post('/init/import_reg_participants/').json()['message'], 'success')
-        self.assertEqual(Registered_Participant.objects.count(), 2)
+        self.assertEqual(Registered_Participant.objects.count(), 5)
+        self.assertEqual(
+            list(Registered_Participant.objects.filter(email__in=['mate2@x.co', 'mate3@x.co'])
+                 .order_by('email').values_list('name', 'university', 'contact_no')),
+            [('Mate Two', 'Mate U', '2'), ('Mate Three', 'Third U', '3')])
         self.client.post('/init/import_reg_participants/')
-        self.assertEqual(Registered_Participant.objects.count(), 2)
+        self.assertEqual(Registered_Participant.objects.count(), 5)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)

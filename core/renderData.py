@@ -181,31 +181,51 @@ class Core:
         '''Imports all participants from form_participant table to registered_participant table and also generates their unique codes\n
             This is done when participants are confirmed for event.'''
         
-        seen_emails = set(
-            Registered_Participant.objects.values_list('email', flat=True)
-        )
+        seen_emails = {
+            (email or '').strip().casefold()
+            for email in Registered_Participant.objects.values_list('email', flat=True)
+        }
         used_codes = set(
             Registered_Participant.objects.values_list('unique_code', flat=True)
         )
         objects = []
         for participant in Form_Participant.objects.order_by('created_at'):
-            if participant.email in seen_emails:
-                continue
-            seen_emails.add(participant.email)
+            team_members = [
+                (participant.name, participant.email, participant.university, participant.phone),
+            ]
+            if participant.registration_type == 'competition':
+                member_count = participant.total_members if participant.total_members in ('2', '3') else '1'
+                for number in range(2, int(member_count) + 1):
+                    prefix = f'mem{number}_'
+                    name = getattr(participant, f'{prefix}name')
+                    email = getattr(participant, f'{prefix}email')
+                    if name and email:
+                        team_members.append((
+                            name,
+                            email,
+                            getattr(participant, f'{prefix}university'),
+                            getattr(participant, f'{prefix}phone'),
+                        ))
 
-            # unique_code has a unique constraint, so make sure a random collision cannot break the import
-            code = Core.generate_unique_code(participant.name, participant.university)
-            while code in used_codes:
-                code = Core.generate_unique_code(participant.name, participant.university)
-            used_codes.add(code)
+            for name, email, university, phone in team_members:
+                email_key = (email or '').strip().casefold()
+                if email_key in seen_emails:
+                    continue
+                seen_emails.add(email_key)
 
-            objects.append(Registered_Participant(
-                name=participant.name,
-                university=participant.university,
-                contact_no=participant.phone,
-                email=participant.email,
-                unique_code=code,
-            ))
+                # unique_code has a unique constraint, so make sure a random collision cannot break the import
+                code = Core.generate_unique_code(name, university or '')
+                while code in used_codes:
+                    code = Core.generate_unique_code(name, university or '')
+                used_codes.add(code)
+
+                objects.append(Registered_Participant(
+                    name=name,
+                    university=university,
+                    contact_no=phone,
+                    email=email,
+                    unique_code=code,
+                ))
 
         Registered_Participant.objects.bulk_create(objects)
 
