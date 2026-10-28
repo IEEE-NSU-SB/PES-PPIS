@@ -86,7 +86,7 @@ class SmokeTests(TestCase):
     def test_every_template_url_name_resolves(self):
         names = {'core:login', 'core:logout', 'core:dashboard', 'core:update_session', 'core:get_session_statuses',
                  'core:update_participant_session', 'core:process_qr_data', 'core:delete_participant', 'core:gen_qr',
-                 'core:import_reg_participants', 'emails:send_email', 'emails:oauth2callback',
+                 'core:import_reg_participants', 'emails:send_email', 'emails:send_bulk_emails', 'emails:oauth2callback',
                  'registration:registration_form', 'registration:registration_admin', 'registration:response_table',
                  'registration:toggle_publish', 'registration:submit_form', 'registration:download_excel'}
         for name in names:

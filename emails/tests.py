@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase, override_settings
 
 from emails import views
+from core.models import Registered_Participant
 
 
 # Point the token file at a path that does not exist, so tests never read the real .env or call Google
@@ -118,6 +119,73 @@ class EmailEndpointPermissionTests(TestCase):
             self.client.get('/init/authorise/')
         creds.assert_not_called()
         self.client.get('/init/oauth2callback/')  # must not raise
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class BulkEmailEndpointTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('root', password='pw')
+        self.user = User.objects.create_user('u', password='pw')
+        self.url = '/init/send_emails/'
+
+    def create_participant(self, email, code):
+        return Registered_Participant.objects.create(
+            name=email.split('@')[0], email=email, unique_code=code)
+
+    def test_bulk_email_is_post_only_and_superuser_only(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+        self.client.force_login(self.user)
+        with patch.object(views, '_build_service') as build:
+            self.assertEqual(self.client.post(self.url).status_code, 404)
+        build.assert_not_called()
+
+    def test_bulk_email_requires_generated_qr_codes(self):
+        self.create_participant('person@example.com', 'CODE')
+        with tempfile.TemporaryDirectory() as tmp, override_settings(PROTECTED_ROOT=tmp):
+            self.client.force_login(self.admin)
+            with patch.object(views, '_build_service') as build:
+                response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Generate QR codes', response.json()['message'])
+        build.assert_not_called()
+
+    def test_bulk_email_sends_each_participant_their_own_qr(self):
+        import base64
+        from email import message_from_bytes
+
+        first = self.create_participant('first@example.com', 'FIRSTCODE')
+        second = self.create_participant('second@example.com', 'SECONDCODE')
+        with tempfile.TemporaryDirectory() as tmp:
+            qr_folder = Path(tmp) / 'Participant_QR'
+            qr_folder.mkdir()
+            (qr_folder / f'{first.id}.png').write_bytes(b'first qr')
+            (qr_folder / f'{second.id}.png').write_bytes(b'second qr')
+            (Path(tmp) / 'PPIS Timeline.pdf').write_bytes(b'timeline')
+            (Path(tmp) / 'PPISBanner.webp').write_bytes(b'banner')
+
+            self.client.force_login(self.admin)
+            with override_settings(PROTECTED_ROOT=tmp), \
+                    patch.object(views, '_build_service'), \
+                    patch.object(views, '_send_message') as send_message, \
+                    patch.object(views, 'sleep'):
+                response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'message': 'success', 'sent': 2})
+        self.assertEqual(send_message.call_count, 2)
+
+        sent = {}
+        for call in send_message.call_args_list:
+            raw = call.args[1].as_bytes()
+            message = message_from_bytes(raw)
+            attachments = {
+                part.get_filename(): part.get_payload(decode=True)
+                for part in message.walk() if part.get_filename()
+            }
+            sent[message['To']] = attachments
+        self.assertEqual(sent['first@example.com'][f'{first.id}.png'], b'first qr')
+        self.assertEqual(sent['second@example.com'][f'{second.id}.png'], b'second qr')
 
 
 @NO_ENV_FILE

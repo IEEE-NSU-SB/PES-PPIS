@@ -561,6 +561,7 @@ video{
         <div class="button-group" style="gap:6px;">
           <button id="btn-import-participants" style="background:#d7f5bf;border-color:#357a34;">Import Participants</button>
           <button id="btn-gen-qr" style="background:#fde68a;border-color:#92400e;color:#92400e;">Generate QR Codes</button>
+          <button id="btn-send-bulk-qr" style="background:#bfdbfe;border-color:#1d4ed8;color:#1d4ed8;">Send QR Emails</button>
           <a href="{% url 'admin:core_token_session_changelist' %}" style="background:#e0e7ff;border-color:#3730a3;color:#3730a3;">Manage Sessions</a>
         </div>
         {% endif %}
@@ -1416,6 +1417,38 @@ document.getElementById('btn-gen-qr').addEventListener('click', () => {
       }
     })
     .catch(() => Swal.fire('Error', 'Request failed.', 'error'));
+  });
+});
+
+// Bulk-send each participant their QR code and event materials
+document.getElementById('btn-send-bulk-qr').addEventListener('click', () => {
+  Swal.fire({
+    title: 'Send QR emails to everyone?',
+    html: 'This sends one email to every participant in the dashboard, with their own QR code attached.<br><b>Generate QR codes first.</b> This may take several minutes and cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Send Emails',
+    cancelButtonText: 'Cancel',
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Sending emails...', text: 'Please keep this page open. Bulk sending may take several minutes.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    fetch("{% url 'emails:send_bulk_emails' %}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{csrf_token}}' },
+    })
+    .then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Bulk email failed.');
+      return data;
+    })
+    .then(data => {
+      if (data.message === 'success') {
+        Swal.fire('Done!', `Sent QR emails to ${data.sent} participants.`, 'success');
+      } else {
+        Swal.fire('Error', data.message || 'Bulk email failed.', 'error');
+      }
+    })
+    .catch(error => Swal.fire('Error', error.message || 'Request failed.', 'error'));
   });
 });
 {% endif %}

@@ -64,17 +64,54 @@ def _build_service():
 
 
 @login_required
+@require_POST
 def send_emails(request):
-    """Bulk-sends the QR code to every registered participant. Superuser only.
-    Not routed by default because it is slow (rate-limited sends)."""
+    """Bulk-sends each registered participant their QR code and event materials."""
     if not Site_Permissions.is_superuser(request.user):
         return render(request, '404.html', status=404)
 
-    service = _build_service()
-    if service is None:
-        return JsonResponse({'message': 'Please re-authorise google api'})
+    participants = list(Registered_Participant.objects.all())
+    if not participants:
+        return JsonResponse({'message': 'There are no registered participants to email.'}, status=400)
 
-    for participant in Registered_Participant.objects.all():
+    qr_folder = os.path.join(settings.PROTECTED_ROOT, 'Participant_QR')
+    missing_qrs = [
+        participant.id for participant in participants
+        if not os.path.isfile(os.path.join(qr_folder, f'{participant.id}.png'))
+    ]
+    invalid_emails = []
+    for participant in participants:
+        try:
+            validate_email(participant.email)
+        except ValidationError:
+            invalid_emails.append(participant.id)
+    if missing_qrs:
+        return JsonResponse({
+            'message': f'{len(missing_qrs)} QR code(s) are missing. Generate QR codes before sending bulk email.'
+        }, status=400)
+    if invalid_emails:
+        return JsonResponse({
+            'message': f'{len(invalid_emails)} participant(s) have an invalid email address.'
+        }, status=400)
+    missing_materials = [
+        filename for filename in ('PPIS Timeline.pdf', 'PPISBanner.webp')
+        if not os.path.isfile(os.path.join(settings.PROTECTED_ROOT, filename))
+    ]
+    if missing_materials:
+        return JsonResponse({
+            'message': 'Required email attachment(s) are missing: ' + ', '.join(missing_materials)
+        }, status=400)
+
+    try:
+        service = _build_service()
+    except Exception as e:
+        log_exception(e, request)
+        return JsonResponse({'message': 'Unable to connect to Google mail service.'}, status=500)
+    if service is None:
+        return JsonResponse({'message': 'Please re-authorise Google API before sending bulk email.'}, status=503)
+
+    sent_count = 0
+    for participant in participants:
         try:
             message = MIMEMultipart()
             message["From"] = SENDER
@@ -88,12 +125,15 @@ def send_emails(request):
             _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'PPISBanner.webp'), 'PPISBanner.webp')
 
             _send_message(service, message)
+            sent_count += 1
             sleep(3)
         except Exception as e:
             log_exception(e, request)
-            return JsonResponse({'message': 'error'})
+            return JsonResponse({
+                'message': f'Email sending failed after {sent_count} of {len(participants)} messages.'
+            }, status=500)
 
-    return JsonResponse({'message': 'success'})
+    return JsonResponse({'message': 'success', 'sent': sent_count})
 
 
 @login_required
