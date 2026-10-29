@@ -119,7 +119,7 @@ def send_emails(request):
             message = MIMEMultipart()
             message["From"] = SENDER
             message["To"] = participant.email
-            message["Cc"] = 'nujhat.saleh@northsouth.edu'
+            message["Cc"] = 'tanjidhaider2.0@northsouth.edu'
             message["Subject"] = 'Registration Confirmation & Event Guidelines for PPIS — Power Policy & Innovation Summit'
             message.attach(MIMEText(render_to_string('email_template.html', {'name': participant.name}), 'html'))
 
