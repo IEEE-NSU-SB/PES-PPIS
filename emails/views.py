@@ -120,7 +120,7 @@ def send_emails(request):
             message["From"] = SENDER
             message["To"] = participant.email
             message["Cc"] = 'tanjidhaider2.0@northsouth.edu'
-            message["Subject"] = 'Registration Confirmation & Event Guidelines for PPIS — Power Policy & Innovation Summit'
+            message["Subject"] = 'Updated: Registration Confirmation & Event Guidelines for PPIS — Power Policy & Innovation Summit'
             message.attach(MIMEText(render_to_string('email_template.html', {'name': participant.name}), 'html'))
 
             _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'Participant_QR', f'{participant.id}.png'), f'{participant.id}.png')
