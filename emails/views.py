@@ -26,6 +26,7 @@ from core.models import Registered_Participant
 from system_administration.utils import log_exception
 
 SENDER = "IEEE NSU SB Portal <ieeensusb.portal@gmail.com>"
+BULK_EMAIL_BATCH_SIZE = 5
 
 QR_EMAIL_BODY = (
     "Dear Participant,\n\n"
@@ -70,9 +71,19 @@ def send_emails(request):
     if not Site_Permissions.is_superuser(request.user):
         return render(request, '404.html', status=404)
 
-    participants = list(Registered_Participant.objects.all())
+    try:
+        payload = json.loads(request.body or b'{}')
+        offset = payload.get('offset', 0)
+        if not isinstance(payload, dict) or isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+            raise ValueError
+    except (json.JSONDecodeError, AttributeError, ValueError):
+        return JsonResponse({'message': 'Invalid bulk email batch.'}, status=400)
+
+    participants = list(Registered_Participant.objects.order_by('id'))
     if not participants:
         return JsonResponse({'message': 'There are no registered participants to email.'}, status=400)
+    if offset >= len(participants):
+        return JsonResponse({'message': 'Invalid bulk email batch.'}, status=400)
 
     qr_folder = os.path.join(settings.PROTECTED_ROOT, 'Participant_QR')
     missing_qrs = [
@@ -101,8 +112,9 @@ def send_emails(request):
     if service is None:
         return JsonResponse({'message': 'Please re-authorise Google API before sending bulk email.'}, status=503)
 
+    batch = participants[offset:offset + BULK_EMAIL_BATCH_SIZE]
     sent_count = 0
-    for participant in participants:
+    for participant in batch:
         try:
             message = MIMEMultipart()
             message["From"] = SENDER
@@ -115,14 +127,24 @@ def send_emails(request):
 
             _send_message(service, message)
             sent_count += 1
-            sleep(3)
+            if sent_count < len(batch):
+                sleep(3)
         except Exception as e:
             log_exception(e, request)
             return JsonResponse({
-                'message': f'Email sending failed after {sent_count} of {len(participants)} messages.'
+                'message': 'Email sending failed during this batch.',
+                'sent': sent_count,
+                'total': len(participants),
             }, status=500)
 
-    return JsonResponse({'message': 'success', 'sent': sent_count})
+    next_offset = offset + sent_count
+    return JsonResponse({
+        'message': 'success',
+        'sent': sent_count,
+        'total': len(participants),
+        'next_offset': next_offset,
+        'complete': next_offset >= len(participants),
+    })
 
 
 @login_required

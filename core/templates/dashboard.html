@@ -1420,7 +1420,7 @@ document.getElementById('btn-gen-qr').addEventListener('click', () => {
   });
 });
 
-// Bulk-send each participant their QR code and event materials
+// Bulk-send each participant their QR code in short requests
 document.getElementById('btn-send-bulk-qr').addEventListener('click', () => {
   Swal.fire({
     title: 'Send QR emails to everyone?',
@@ -1432,23 +1432,41 @@ document.getElementById('btn-send-bulk-qr').addEventListener('click', () => {
   }).then((result) => {
     if (!result.isConfirmed) return;
     Swal.fire({ title: 'Sending emails...', text: 'Please keep this page open. Bulk sending may take several minutes.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    fetch("{% url 'emails:send_bulk_emails' %}", {
-      method: 'POST',
-      headers: { 'X-CSRFToken': '{{csrf_token}}' },
-    })
-    .then(async (response) => {
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Bulk email failed.');
-      return data;
-    })
-    .then(data => {
-      if (data.message === 'success') {
-        Swal.fire('Done!', `Sent QR emails to ${data.sent} participants.`, 'success');
-      } else {
-        Swal.fire('Error', data.message || 'Bulk email failed.', 'error');
+    (async () => {
+      let offset = 0;
+      let total = null;
+      let sent = 0;
+      try {
+        while (total === null || offset < total) {
+          const response = await fetch("{% url 'emails:send_bulk_emails' %}", {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': '{{csrf_token}}',
+            },
+            body: JSON.stringify({ offset }),
+          });
+          const responseText = await response.text();
+          let data;
+          try {
+            data = JSON.parse(responseText);
+          } catch {
+            throw new Error(`The server returned an unexpected response (HTTP ${response.status}). ${sent} email(s) were confirmed sent before this batch; the current batch may have partially sent. Check before retrying.`);
+          }
+          if (!response.ok) {
+            const batchSent = Number.isInteger(data.sent) ? data.sent : 0;
+            throw new Error(`${data.message || 'Bulk email failed.'} ${sent + batchSent} email(s) were confirmed sent; check before retrying.`);
+          }
+          total = data.total;
+          sent += data.sent;
+          offset = data.next_offset;
+          Swal.update({ text: `Sent ${sent} of ${total} emails. Please keep this page open.` });
+        }
+        Swal.fire('Done!', `Sent QR emails to ${sent} participants.`, 'success');
+      } catch (error) {
+        Swal.fire('Error', error.message || 'Bulk email failed. Check the server before retrying.', 'error');
       }
-    })
-    .catch(error => Swal.fire('Error', error.message || 'Request failed.', 'error'));
+    })();
   });
 });
 {% endif %}

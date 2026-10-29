@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -137,7 +138,8 @@ class BulkEmailEndpointTests(TestCase):
         self.assertEqual(self.client.get(self.url).status_code, 405)
         self.client.force_login(self.user)
         with patch.object(views, '_build_service') as build:
-            self.assertEqual(self.client.post(self.url).status_code, 404)
+            self.assertEqual(self.client.post(
+                self.url, data='{}', content_type='application/json').status_code, 404)
         build.assert_not_called()
 
     def test_bulk_email_requires_generated_qr_codes(self):
@@ -145,7 +147,8 @@ class BulkEmailEndpointTests(TestCase):
         with tempfile.TemporaryDirectory() as tmp, override_settings(PROTECTED_ROOT=tmp):
             self.client.force_login(self.admin)
             with patch.object(views, '_build_service') as build:
-                response = self.client.post(self.url)
+                response = self.client.post(
+                    self.url, data='{}', content_type='application/json')
         self.assertEqual(response.status_code, 400)
         self.assertIn('Generate QR codes', response.json()['message'])
         build.assert_not_called()
@@ -167,13 +170,17 @@ class BulkEmailEndpointTests(TestCase):
                     patch.object(views, '_build_service'), \
                     patch.object(views, '_send_message') as send_message, \
                     patch.object(views, 'sleep'):
-                response = self.client.post(self.url)
+                response = self.client.post(
+                    self.url, data='{}', content_type='application/json')
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'message': 'success', 'sent': 2})
+        self.assertEqual(response.json(), {
+            'message': 'success', 'sent': 2, 'total': 2, 'next_offset': 2, 'complete': True,
+        })
         self.assertEqual(send_message.call_count, 2)
 
         sent = {}
+        self.client.force_login(self.admin)
         for call in send_message.call_args_list:
             raw = call.args[1].as_bytes()
             message = message_from_bytes(raw)
@@ -186,6 +193,44 @@ class BulkEmailEndpointTests(TestCase):
             'first@example.com': {f'{first.id}.png': b'first qr'},
             'second@example.com': {f'{second.id}.png': b'second qr'},
         })
+
+    def test_bulk_email_can_continue_in_separate_batches(self):
+        participants = [
+            self.create_participant(f'person{number}@example.com', f'CODE{number}')
+            for number in range(6)
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            qr_folder = Path(tmp) / 'Participant_QR'
+            qr_folder.mkdir()
+            for participant in participants:
+                (qr_folder / f'{participant.id}.png').write_bytes(b'qr')
+
+            self.client.force_login(self.admin)
+            with override_settings(PROTECTED_ROOT=tmp), \
+                    patch.object(views, '_build_service'), \
+                    patch.object(views, '_send_message'), \
+                    patch.object(views, 'sleep'):
+                first_batch = self.client.post(
+                    self.url, data='{"offset": 0}', content_type='application/json')
+                second_batch = self.client.post(
+                    self.url, data='{"offset": 5}', content_type='application/json')
+
+        self.assertEqual(first_batch.status_code, 200)
+        self.assertEqual(first_batch.json(), {
+            'message': 'success', 'sent': 5, 'total': 6, 'next_offset': 5, 'complete': False,
+        })
+        self.assertEqual(second_batch.status_code, 200)
+        self.assertEqual(second_batch.json(), {
+            'message': 'success', 'sent': 1, 'total': 6, 'next_offset': 6, 'complete': True,
+        })
+
+    def test_bulk_email_rejects_invalid_batch_offset(self):
+        self.create_participant('person@example.com', 'CODE')
+        self.client.force_login(self.admin)
+        for offset in (-1, '1', True):
+            response = self.client.post(
+                self.url, data=json.dumps({'offset': offset}), content_type='application/json')
+            self.assertEqual(response.status_code, 400)
 
 
 @NO_ENV_FILE

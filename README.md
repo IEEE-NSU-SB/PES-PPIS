@@ -79,7 +79,7 @@ Gmail must be authorised once by a superuser at `/init/authorise/`. If the Googl
 **Responses** (`/registration/responses/`): Participants and Contestants tabs, Statistics (fees and totals, set in `REGISTRATION_FEES` in `ppis/settings.py`), Excel export and permanent delete.
 Deleting a person removes them from both the registration responses and the QR dashboard (matched by email), together with their scan records, QR image and abstract.
 
-**Admin** (`/admin/`): registrations (search, filters, team columns, abstract link), dashboard participants, sessions and scans, the single form on/off switch, a read-only error log, and users, roles and permissions. Dashboard superusers can import registrations, generate QR codes, and bulk-email each participant their QR code and event materials. Deleting in the admin behaves like the delete buttons on the site.
+**Admin** (`/admin/`): registrations (search, filters, team columns, abstract link), dashboard participants, sessions and scans, the single form on/off switch, a read-only error log, and users, roles and permissions. Dashboard superusers can import registrations, generate QR codes, and bulk-email each participant their QR code. Bulk email is sent in small batches to avoid request timeouts. Deleting in the admin behaves like the delete buttons on the site.
 
 **Permissions** (created automatically, tick them for a user or role under *Access Control*; superusers have all):
 `view_qr_dashboard`, `scan_session`, `scan_any_session`, `update_session`, `reg_form_control`, `view_reg_responses_list`, `view_reg_response`, `view_finance_info`, `delete_participant`.
