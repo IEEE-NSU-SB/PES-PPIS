@@ -66,7 +66,7 @@ def _build_service():
 @login_required
 @require_POST
 def send_emails(request):
-    """Bulk-sends each registered participant their QR code and event materials."""
+    """Bulk-sends each registered participant their QR code."""
     if not Site_Permissions.is_superuser(request.user):
         return render(request, '404.html', status=404)
 
@@ -93,15 +93,6 @@ def send_emails(request):
         return JsonResponse({
             'message': f'{len(invalid_emails)} participant(s) have an invalid email address.'
         }, status=400)
-    missing_materials = [
-        filename for filename in ('PPIS Timeline.pdf', 'PPISBanner.webp')
-        if not os.path.isfile(os.path.join(settings.PROTECTED_ROOT, filename))
-    ]
-    if missing_materials:
-        return JsonResponse({
-            'message': 'Required email attachment(s) are missing: ' + ', '.join(missing_materials)
-        }, status=400)
-
     try:
         service = _build_service()
     except Exception as e:
@@ -121,8 +112,6 @@ def send_emails(request):
             message.attach(MIMEText(render_to_string('email_template.html', {'name': participant.name}), 'html'))
 
             _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'Participant_QR', f'{participant.id}.png'), f'{participant.id}.png')
-            _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'PPIS Timeline.pdf'), 'PPIS Timeline.pdf')
-            _attach_file(message, os.path.join(settings.PROTECTED_ROOT, 'PPISBanner.webp'), 'PPISBanner.webp')
 
             _send_message(service, message)
             sent_count += 1

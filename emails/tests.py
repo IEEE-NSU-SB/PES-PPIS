@@ -161,8 +161,6 @@ class BulkEmailEndpointTests(TestCase):
             qr_folder.mkdir()
             (qr_folder / f'{first.id}.png').write_bytes(b'first qr')
             (qr_folder / f'{second.id}.png').write_bytes(b'second qr')
-            (Path(tmp) / 'PPIS Timeline.pdf').write_bytes(b'timeline')
-            (Path(tmp) / 'PPISBanner.webp').write_bytes(b'banner')
 
             self.client.force_login(self.admin)
             with override_settings(PROTECTED_ROOT=tmp), \
@@ -184,8 +182,10 @@ class BulkEmailEndpointTests(TestCase):
                 for part in message.walk() if part.get_filename()
             }
             sent[message['To']] = attachments
-        self.assertEqual(sent['first@example.com'][f'{first.id}.png'], b'first qr')
-        self.assertEqual(sent['second@example.com'][f'{second.id}.png'], b'second qr')
+        self.assertEqual(sent, {
+            'first@example.com': {f'{first.id}.png': b'first qr'},
+            'second@example.com': {f'{second.id}.png': b'second qr'},
+        })
 
 
 @NO_ENV_FILE
