@@ -1423,28 +1423,37 @@ document.getElementById('btn-gen-qr').addEventListener('click', () => {
 // Bulk-send each participant their QR code in short requests
 document.getElementById('btn-send-bulk-qr').addEventListener('click', () => {
   Swal.fire({
-    title: 'Send QR emails to everyone?',
-    html: 'This sends one email to every participant in the dashboard, with their own QR code attached.<br><b>Generate QR codes first.</b> This may take several minutes and cannot be undone.',
+    title: 'Send QR emails?',
+    html: 'Choose the participant ID to start from. Successfully sent ID and name pairs will be printed in the terminal running Django.<br><b>To resume, choose the next unsent ID from that terminal output.</b>',
+    input: 'number',
+    inputValue: 1,
+    inputAttributes: { min: 1, step: 1 },
+    inputValidator: (value) => {
+      if (!Number.isInteger(Number(value)) || Number(value) < 1) {
+        return 'Enter a participant ID of 1 or higher.';
+      }
+    },
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Yes, Send Emails',
     cancelButtonText: 'Cancel',
   }).then((result) => {
-    if (!result.isConfirmed) return;
+    if (!result.isConfirmed || !result.value) return;
+    const startId = Number(result.value);
     Swal.fire({ title: 'Sending emails...', text: 'Please keep this page open. Bulk sending may take several minutes.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     (async () => {
-      let offset = 0;
-      let total = null;
+      let afterId = startId - 1;
       let sent = 0;
+      let total = null;
       try {
-        while (total === null || offset < total) {
+        while (true) {
           const response = await fetch("{% url 'emails:send_bulk_emails' %}", {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-CSRFToken': '{{csrf_token}}',
             },
-            body: JSON.stringify({ offset }),
+            body: JSON.stringify({ start_id: startId, after_id: afterId }),
           });
           const responseText = await response.text();
           let data;
@@ -1459,8 +1468,9 @@ document.getElementById('btn-send-bulk-qr').addEventListener('click', () => {
           }
           total = data.total;
           sent += data.sent;
-          offset = data.next_offset;
-          Swal.update({ text: `Sent ${sent} of ${total} emails. Please keep this page open.` });
+          afterId = data.next_after_id;
+          Swal.update({ text: `Sent ${sent} of ${total} emails from ID ${startId}. Please keep this page open.` });
+          if (data.complete) break;
         }
         Swal.fire('Done!', `Sent QR emails to ${sent} participants.`, 'success');
       } catch (error) {

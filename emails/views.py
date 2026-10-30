@@ -73,25 +73,33 @@ def send_emails(request):
 
     try:
         payload = json.loads(request.body or b'{}')
-        offset = payload.get('offset', 0)
-        if not isinstance(payload, dict) or isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+        if not isinstance(payload, dict):
+            raise ValueError
+        start_id = payload.get('start_id', 1)
+        default_after_id = start_id - 1 if isinstance(start_id, int) else 0
+        after_id = payload.get('after_id', default_after_id)
+        if (isinstance(start_id, bool) or not isinstance(start_id, int) or start_id < 1
+                or isinstance(after_id, bool) or not isinstance(after_id, int) or after_id < start_id - 1):
             raise ValueError
     except (json.JSONDecodeError, AttributeError, ValueError):
         return JsonResponse({'message': 'Invalid bulk email batch.'}, status=400)
 
-    participants = list(Registered_Participant.objects.order_by('id'))
-    if not participants:
-        return JsonResponse({'message': 'There are no registered participants to email.'}, status=400)
-    if offset >= len(participants):
-        return JsonResponse({'message': 'Invalid bulk email batch.'}, status=400)
+    start_participants = Registered_Participant.objects.filter(id__gte=start_id).order_by('id')
+    if not start_participants.exists():
+        return JsonResponse({'message': f'No participants found with ID {start_id} or higher.'}, status=400)
+    total = start_participants.count()
+    participants_to_send = start_participants.filter(id__gt=after_id)
+    batch = list(participants_to_send[:BULK_EMAIL_BATCH_SIZE])
+    if not batch:
+        return JsonResponse({'message': 'No more participants remain in this bulk email run.'}, status=400)
 
     qr_folder = os.path.join(settings.PROTECTED_ROOT, 'Participant_QR')
     missing_qrs = [
-        participant.id for participant in participants
+        participant.id for participant in start_participants
         if not os.path.isfile(os.path.join(qr_folder, f'{participant.id}.png'))
     ]
     invalid_emails = []
-    for participant in participants:
+    for participant in start_participants:
         try:
             validate_email(participant.email)
         except ValidationError:
@@ -112,7 +120,6 @@ def send_emails(request):
     if service is None:
         return JsonResponse({'message': 'Please re-authorise Google API before sending bulk email.'}, status=503)
 
-    batch = participants[offset:offset + BULK_EMAIL_BATCH_SIZE]
     sent_count = 0
     for participant in batch:
         try:
@@ -127,6 +134,7 @@ def send_emails(request):
 
             _send_message(service, message)
             sent_count += 1
+            print(f"Sent QR email: ID={participant.id}, Name={participant.name}", flush=True)
             if sent_count < len(batch):
                 sleep(3)
         except Exception as e:
@@ -134,16 +142,16 @@ def send_emails(request):
             return JsonResponse({
                 'message': 'Email sending failed during this batch.',
                 'sent': sent_count,
-                'total': len(participants),
+                'total': total,
             }, status=500)
 
-    next_offset = offset + sent_count
+    next_after_id = batch[-1].id
     return JsonResponse({
         'message': 'success',
         'sent': sent_count,
-        'total': len(participants),
-        'next_offset': next_offset,
-        'complete': next_offset >= len(participants),
+        'total': total,
+        'next_after_id': next_after_id,
+        'complete': not start_participants.filter(id__gt=next_after_id).exists(),
     })
 
 

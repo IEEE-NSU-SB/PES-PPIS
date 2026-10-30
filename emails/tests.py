@@ -1,6 +1,8 @@
+import io
 import json
 import os
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -169,15 +171,18 @@ class BulkEmailEndpointTests(TestCase):
             with override_settings(PROTECTED_ROOT=tmp), \
                     patch.object(views, '_build_service'), \
                     patch.object(views, '_send_message') as send_message, \
-                    patch.object(views, 'sleep'):
+                    patch.object(views, 'sleep'), \
+                    redirect_stdout(io.StringIO()) as terminal:
                 response = self.client.post(
                     self.url, data='{}', content_type='application/json')
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
-            'message': 'success', 'sent': 2, 'total': 2, 'next_offset': 2, 'complete': True,
+            'message': 'success', 'sent': 2, 'total': 2, 'next_after_id': second.id, 'complete': True,
         })
         self.assertEqual(send_message.call_count, 2)
+        self.assertIn(f'Sent QR email: ID={first.id}, Name=first', terminal.getvalue())
+        self.assertIn(f'Sent QR email: ID={second.id}, Name=second', terminal.getvalue())
 
         sent = {}
         self.client.force_login(self.admin)
@@ -211,25 +216,58 @@ class BulkEmailEndpointTests(TestCase):
                     patch.object(views, '_send_message'), \
                     patch.object(views, 'sleep'):
                 first_batch = self.client.post(
-                    self.url, data='{"offset": 0}', content_type='application/json')
+                        self.url, data='{"start_id": 1, "after_id": 0}', content_type='application/json')
                 second_batch = self.client.post(
-                    self.url, data='{"offset": 5}', content_type='application/json')
+                        self.url, data='{"start_id": 1, "after_id": 5}', content_type='application/json')
 
         self.assertEqual(first_batch.status_code, 200)
         self.assertEqual(first_batch.json(), {
-            'message': 'success', 'sent': 5, 'total': 6, 'next_offset': 5, 'complete': False,
+            'message': 'success', 'sent': 5, 'total': 6,
+            'next_after_id': participants[4].id, 'complete': False,
         })
         self.assertEqual(second_batch.status_code, 200)
         self.assertEqual(second_batch.json(), {
-            'message': 'success', 'sent': 1, 'total': 6, 'next_offset': 6, 'complete': True,
+            'message': 'success', 'sent': 1, 'total': 6,
+            'next_after_id': participants[5].id, 'complete': True,
         })
 
-    def test_bulk_email_rejects_invalid_batch_offset(self):
+    def test_bulk_email_can_start_at_participant_id(self):
+        participants = [
+            self.create_participant(f'person{number}@example.com', f'START{number}')
+            for number in range(3)
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            qr_folder = Path(tmp) / 'Participant_QR'
+            qr_folder.mkdir()
+            for participant in participants:
+                    (qr_folder / f'{participant.id}.png').write_bytes(b'qr')
+
+            self.client.force_login(self.admin)
+            with override_settings(PROTECTED_ROOT=tmp), \
+                        patch.object(views, '_build_service'), \
+                        patch.object(views, '_send_message'), \
+                        patch.object(views, 'sleep'):
+                    response = self.client.post(
+                        self.url,
+                        data=json.dumps({'start_id': participants[1].id, 'after_id': participants[1].id - 1}),
+                        content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['total'], 2)
+        self.assertEqual(response.json()['sent'], 2)
+        self.assertEqual(response.json()['next_after_id'], participants[2].id)
+
+    def test_bulk_email_rejects_invalid_batch_ids(self):
         self.create_participant('person@example.com', 'CODE')
         self.client.force_login(self.admin)
-        for offset in (-1, '1', True):
+        for data in (
+            {'start_id': -1, 'after_id': 0},
+            {'start_id': '1', 'after_id': 0},
+            {'start_id': 1, 'after_id': True},
+            {'start_id': 1, 'after_id': -1},
+        ):
             response = self.client.post(
-                self.url, data=json.dumps({'offset': offset}), content_type='application/json')
+                    self.url, data=json.dumps(data), content_type='application/json')
             self.assertEqual(response.status_code, 400)
 
 
